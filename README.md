@@ -1,6 +1,6 @@
 # ABC for Fault Attacks on ML-DSA
 
-Interactive companion website of the anonymous submission *SoK: Fault Injection Attacks on ML-DSA*.
+Interactive website of the anonymous submission *SoK: Fault Injection Attacks on ML-DSA*.
 
 ## Views
 
