@@ -2,8 +2,6 @@
 
 Interactive companion website of the anonymous submission *SoK: Fault Injection Attacks on ML-DSA*.
 
-Open `index.html` in a browser. The page is a single self-contained file and needs no build step or server.
-
 ## Views
 
 - **Fault map**: ML-DSA as specified in FIPS 204, with every published fault attack placed at the line it targets, together with the targeted countermeasures.
