@@ -1,0 +1,907 @@
+<title>ABC for Fault Attacks on ML-DSA</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=STIX+Two+Text:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* Layout: browser-like frames, one per site view, stacked on a neutral backdrop; each frame is one screenshot. */
+:root {
+  --page: #E8EBEF;
+  --surface: #FFFFFF;
+  --soft: #F4F6F8;
+  --line: #E2E6EB;
+  --ink: #12161B;
+  --muted: #5B6472;
+  --faint: #959FAB;
+  --heat: 200, 82, 60;
+  --bad: #D2553C;
+  --ok: #1E8C6E;
+  --hinder: rgb(210, 136, 82);
+  --tolerate: rgb(196, 112, 138);
+  --detect: rgb(78, 121, 167);
+  --bypass: rgb(121, 112, 110);
+  --gen: #4D4D4D;
+  --ann: #2B63D9;
+  --link: #2D5FA0;
+  --hl: rgba(45, 95, 160, 0.10);
+  --card-bg: #FFFFFF;
+  --card-fg: #12161B;
+  --card-mut: #7A828F;
+  --card-bd: #CFCBC2;
+  --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --math: "STIX Two Text", "Times New Roman", Times, serif;
+  --fw: 1280px;
+  --rowh: 40px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #08090C; --surface: #13161A; --soft: #1A1E24; --line: #272C34; --ink: #E7EAEE; --muted: #9AA3AF; --faint: #67707E;
+    --heat: 236, 118, 92; --bad: #EE7A62; --ok: #4FC09A; --hinder: rgb(226, 160, 112); --tolerate: rgb(214, 140, 164); --detect: rgb(120, 162, 212); --bypass: rgb(160, 152, 150); --gen: #C9CDD3;
+    --ann: #6D9BFF; --link: #7FA8E0; --hl: rgba(127, 168, 224, 0.13);
+    --card-bg: #1C2027; --card-fg: #E7EAEE; --card-mut: #8E97A4; --card-bd: #3A404A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #08090C; --surface: #13161A; --soft: #1A1E24; --line: #272C34; --ink: #E7EAEE; --muted: #9AA3AF; --faint: #67707E;
+  --heat: 236, 118, 92; --bad: #EE7A62; --ok: #4FC09A; --hinder: rgb(226, 160, 112); --tolerate: rgb(214, 140, 164); --detect: rgb(120, 162, 212); --bypass: rgb(160, 152, 150); --gen: #C9CDD3;
+  --ann: #6D9BFF; --link: #7FA8E0; --hl: rgba(127, 168, 224, 0.13);
+  --card-bg: #1C2027; --card-fg: #E7EAEE; --card-mut: #8E97A4; --card-bd: #3A404A;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font: 14px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+/* ---------- control strip (outside the screens) ---------- */
+.ctrl { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 60; background: var(--page); border-bottom: 1px solid var(--line); }
+.ctrl-in { max-width: calc(var(--fw) + 32px); margin: 0 auto; padding-inline: 16px; padding-block: 10px; display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.ctrl-in strong { color: var(--ink); font-weight: 600; margin-right: 4px; }
+.cg { display: inline-flex; gap: 8px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: none; padding: 4px 10px; cursor: pointer; color: var(--muted); font-size: 12.5px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--soft); color: var(--ink); font-weight: 600; }
+.chk { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.chk input { margin: 0; accent-color: var(--ink); }
+.jump { margin-left: auto; display: inline-flex; gap: 12px; }
+.jump a { color: var(--muted); text-decoration: none; }
+.jump a:hover { color: var(--ink); }
+
+/* ---------- stage ---------- */
+.stage { padding-inline: 16px; padding-block: 26px 90px; display: grid; gap: 40px; justify-items: center; }
+.part { width: min(var(--fw), 100%); display: grid; gap: 4px; padding-top: 18px; }
+.part h2 { margin: 0; font-size: 18px; letter-spacing: -0.015em; }
+.part p { margin: 0; color: var(--muted); font-size: 13px; max-width: 760px; }
+.shot { margin: 0; display: grid; gap: 10px; max-width: 100%; }
+.shot-label { font-size: 12px; color: var(--muted); display: flex; gap: 10px; align-items: baseline; max-width: var(--fw); flex-wrap: wrap; }
+.shot-label b { color: var(--ink); font-weight: 600; font-size: 13px; }
+.shot-label code { font: 11px var(--mono); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+.frame-scroll { overflow-x: auto; max-width: 100%; }
+.frame { width: var(--fw); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.fhead { display: flex; align-items: flex-end; gap: 28px; padding: 14px 28px 0; border-bottom: 1px solid var(--line); }
+.logo { font-weight: 650; letter-spacing: -0.01em; padding-bottom: 12px; font-size: 15px; white-space: nowrap; }
+.tabs { display: flex; gap: 22px; margin-left: auto; }
+.tabs span { color: var(--muted); padding-bottom: 11px; font-size: 13px; border-bottom: 2px solid transparent; white-space: nowrap; }
+.tabs span.on { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
+.fbody { position: relative; padding: 24px 28px 30px; }
+.fbody.fixed { height: 860px; overflow: hidden; }
+.ptitle { display: grid; gap: 4px; margin-bottom: 16px; }
+.ptitle h1 { font-size: 23px; line-height: 1.2; margin: 0; letter-spacing: -0.025em; font-weight: 650; }
+.ptitle p { margin: 0; color: var(--muted); max-width: 860px; font-size: 14px; }
+
+/* ---------- shared ---------- */
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 1px 7px; border-radius: 4px; background: var(--soft); color: var(--muted); white-space: nowrap; }
+.pill.cls { font: 600 11px var(--mono); color: var(--ink); }
+.m { font-family: var(--math); font-size: 1.08em; }
+.m b { font-weight: 700; } .m i { font-style: italic; }
+.ref { color: var(--link); }
+code { font: 0.9em var(--mono); }
+table { border-collapse: separate; border-spacing: 0; }
+.note { font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 14px; }
+.note sup { font-weight: 600; color: var(--ink); }
+.na { color: var(--faint); }
+.vd { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: middle; flex: none; }
+.vd.bad.demo { background: var(--bad); } .vd.bad.arg { background: color-mix(in srgb, var(--bad) 38%, transparent); } .vd.bad.ours { border: 2px solid var(--bad); }
+.vd.ok.demo { background: var(--ok); } .vd.ok.arg { background: color-mix(in srgb, var(--ok) 36%, transparent); } .vd.ok.ours { border: 2px solid var(--ok); }
+.ball { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1.3px solid var(--gen); vertical-align: middle; }
+
+/* ---------- hover card ---------- */
+.hc { background: var(--card-bg); color: var(--card-fg); border: 1px solid var(--card-bd); font-size: 12px; line-height: 1.45; padding: 10px 12px 9px; border-radius: 8px; width: max-content; max-width: 380px; }
+.hc::before { content: ""; position: absolute; left: var(--ax, 18px); width: 9px; height: 9px; background: var(--card-bg); border-left: 1px solid var(--card-bd); border-top: 1px solid var(--card-bd); }
+.hc.below::before { top: -5.5px; transform: rotate(45deg); }
+.hc.above::before { bottom: -5.5px; transform: rotate(225deg); }
+.hc .kv { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 4px 10px; margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--card-bd); }
+.hc .kv > span:nth-child(odd) { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--card-mut); padding-top: 1px; }
+.hc .kv .m { font-size: 1.05em; }
+.hc .foot { margin-top: 8px; font-size: 11px; color: var(--link); }
+#hc { position: fixed; z-index: 100; pointer-events: none; opacity: 0; transition: opacity .1s; }
+#hc.on { opacity: 1; }
+.pincard { position: absolute; z-index: 30; pointer-events: none; }
+.hc .h { display: flex; gap: 8px; align-items: baseline; font-weight: 600; margin-bottom: 4px; }
+.hc .k { font: 600 10.5px var(--mono); padding: 0 5px; border-radius: 3px; background: color-mix(in srgb, var(--card-mut) 18%, transparent); }
+.hc .v { display: flex; gap: 8px; align-items: center; margin: 2px 0; }
+.hc .s { color: var(--card-mut); }
+.hc .d { margin-top: 5px; }
+.hc .sec { display: block; margin-top: 6px; color: var(--card-mut); font-size: 11.5px; }
+.pinned { outline: none; }
+.cursor { position: absolute; z-index: 31; width: 20px; height: 26px; pointer-events: none; }
+body.nopins .pincard, body.nopins .cursor { display: none; }
+body.nopins .pinned { outline: 0; }
+
+/* ---------- annotations ---------- */
+.story { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; margin: -24px -28px 20px; padding: 12px 28px; background: color-mix(in srgb, var(--ann) 8%, var(--surface)); border-bottom: 1px solid color-mix(in srgb, var(--ann) 25%, var(--line)); font-size: 13px; }
+.story .q { font-weight: 600; color: var(--ink); flex-basis: 100%; }
+.story .st { display: inline-flex; gap: 8px; align-items: center; color: var(--muted); }
+.badge { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ann); color: #fff; font: 700 12px var(--sans); flex: none; box-shadow: 0 0 0 3px var(--surface); }
+.ann { position: absolute; z-index: 32; pointer-events: none; }
+body.noann .story, body.noann .ann { display: none; }
+
+/* ---------- toolbar / filters ---------- */
+.toolbar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.tseg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.tseg button { border: 0; border-right: 1px solid var(--line); background: var(--surface); color: var(--muted); padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.tseg button:last-child { border-right: 0; }
+.tseg button[aria-pressed="true"] { background: var(--soft); color: var(--ink); font-weight: 600; }
+.switch { display: inline-flex; gap: 7px; align-items: center; color: var(--muted); font-size: 13px; cursor: pointer; }
+.switch input { margin: 0; accent-color: var(--ink); }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; font-size: 13px; position: relative; }
+.filters select, .filters input, .filters .menu-btn { padding: 5px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 13px; }
+.filters input { width: 160px; }
+.filters select.on, .filters .menu-btn.on { border-color: var(--ink); font-weight: 600; }
+.menu-btn { cursor: pointer; }
+.count { font-size: 12px; color: var(--muted); margin-left: auto; }
+.fchips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-height: 26px; margin-bottom: 10px; font-size: 12px; color: var(--faint); }
+.fchip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 9px; border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 12px; }
+.fchip.out { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
+.fchip.out s { text-decoration-thickness: 1.5px; }
+.fchip button { border: 0; background: rgba(127, 127, 127, 0.35); color: inherit; width: 18px; height: 18px; border-radius: 50%; line-height: 1; cursor: pointer; padding: 0; font-size: 12px; }
+.clear { border: 0; background: none; color: var(--link); cursor: pointer; font-size: 12px; padding: 0 4px; }
+.fchips .right { margin-left: auto; }
+.menu { position: absolute; z-index: 25; top: 38px; width: 560px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 18px; }
+.menu h5 { margin: 0 0 4px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); }
+.menu label { display: flex; gap: 7px; align-items: center; font-size: 12.5px; padding: 2px 0; cursor: pointer; }
+.menu label input { margin: 0; accent-color: var(--ink); }
+.menu label small { margin-left: auto; font: 10.5px var(--mono); color: var(--faint); }
+.menu .mh { grid-column: 1 / -1; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+
+/* ---------- fault map ---------- */
+.listing { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+table.fm { width: 100%; font-size: 13px; }
+.fm thead th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); font-weight: 600; padding: 9px 12px; border-bottom: 1px solid var(--line); background: var(--soft); }
+.fm thead th.gen { text-align: center; }
+.fm td { padding: 0 12px; vertical-align: middle; border-bottom: 1px solid var(--line); }
+.fm tr.ln > td { height: 36px; }
+.fm tr.ln { cursor: pointer; }
+.fm tr.ln:hover > td { background-color: var(--hl); }
+.fm tr.ln.sel > td { box-shadow: inset 0 1px 0 rgba(var(--heat), .5), inset 0 -1px 0 rgba(var(--heat), .5); }
+.fm tr.proc td { height: 34px; padding-top: 8px; font-family: var(--math); font-size: 15px; background: var(--surface); }
+.fm td.num { font: 12px var(--mono); color: var(--faint); text-align: right; width: 54px; position: relative; padding-left: 16px; }
+.fm td.num .heat { position: absolute; left: 0; top: 0; bottom: 0; width: 5px; }
+.fm td.code { font-family: var(--math); font-size: 15px; white-space: nowrap; width: 1%; padding-right: 26px; }
+.fm td.code .kw { font-weight: 700; }
+.fm td.code .cmt { font: 12px var(--sans); color: var(--faint); margin-left: 12px; }
+.fm .ind1 { padding-left: 2.2ch; display: inline-block; } .fm .ind2 { padding-left: 4.4ch; display: inline-block; } .fm .ind3 { padding-left: 6.6ch; display: inline-block; } .fm .ind4 { padding-left: 8.8ch; display: inline-block; }
+.fm td.att { padding-top: 4px; padding-bottom: 4px; }
+.fm td.cmc { white-space: nowrap; width: 1%; }
+.fm td.gen { text-align: center; width: 30px; padding: 0 2px; }
+.fm.nocm .cmc, .fm.nogen .gen { display: none; }
+.chip { text-decoration: none; color: var(--ink); display: inline-flex; align-items: center; gap: 6px; margin: 2px 6px 2px 0; padding: 1px 8px 1px 2px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); font-size: 12px; cursor: pointer; white-space: nowrap; transition: border-color .1s, box-shadow .1s; }
+.chip:hover { border-color: var(--muted); }
+.chip i { font: 600 10.5px var(--mono); font-style: normal; padding: 1px 4px; border-radius: 3px; background: var(--soft); color: var(--muted); }
+.chip.dim { opacity: 0.25; }
+.chip.same, .cond.same { border-color: var(--link); box-shadow: 0 0 0 2px color-mix(in srgb, var(--link) 28%, transparent); }
+.fm tr.detail td { background: var(--soft); padding: 14px 18px 18px 70px; font-size: 13px; color: var(--muted); }
+.det-cols { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 24px; }
+.who { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; overflow: hidden; }
+.who .wr { display: grid; grid-template-columns: 150px 185px 88px 140px minmax(120px, 1fr) 58px; gap: 10px; padding: 5px 10px; border-bottom: 1px solid var(--line); align-items: center; color: var(--ink); line-height: 1.35; }
+.who .wr:last-child { border-bottom: 0; }
+.who .wh { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); font-weight: 600; }
+.who small { color: var(--faint); font-size: 11px; }
+.who .mut { color: var(--muted); }
+.who .pill { margin-right: 4px; }
+.who i.vd { display: inline-block; vertical-align: -2px; }
+.det-cols > div { min-width: 0; }
+.fm tr.detail td.dt { padding: 12px 16px 16px 54px; white-space: normal; }
+.kick { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); font-weight: 600; }
+.det-cols .it { padding: 3px 0; line-height: 1.45; }
+.det-cols .it b.c { color: var(--ink); font: 600 11.5px var(--mono); margin-right: 6px; }
+.tagc { display: inline-block; font: 600 10.5px var(--sans); padding: 1px 6px; border-radius: 4px; margin-right: 4px; line-height: 1.5; cursor: help; color: var(--tc); background: color-mix(in srgb, var(--tc) 12%, var(--surface)); }
+.tagc.dt { --tc: #2D5FA0; } .tagc.tl { --tc: #1E7A62; } .tagc.hd { --tc: #9A6A12; } .tagc.bk { --tc: #6B6F78; }
+.fm-legend { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; padding: 12px 14px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); background: var(--soft); }
+.fm-legend .sw { display: inline-block; width: 22px; height: 12px; border-radius: 2px; vertical-align: -2px; font: 9px var(--mono); color: var(--ink); text-align: center; line-height: 12px; }
+.fm-legend .grp { display: inline-flex; gap: 6px; align-items: center; }
+
+/* ---------- attack list ---------- */
+table.al { width: 100%; font-size: 13px; }
+.al th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: bottom; }
+.al th[data-c] { cursor: pointer; }
+.al th[data-c]:hover { color: var(--ink); }
+.al th.fon { color: var(--ink); box-shadow: inset 0 -3px 0 var(--ink); }
+.al thead tr.g th { border-bottom: 0; padding-bottom: 0; color: var(--muted); letter-spacing: 0.06em; font-size: 10.5px; }
+.al thead tr.g th.cmg { text-align: center; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.al th.cm, .al td.cm { text-align: center; width: 64px; padding-left: 2px; padding-right: 2px; }
+.al td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; height: var(--rowh); }
+.al tr.r:hover > td { background: var(--hl); }
+.al tr.r.sel > td { background: rgba(var(--heat), 0.07); }
+.al td.att { width: 200px; cursor: pointer; }
+.al td.att:hover .ref { text-decoration: underline; }
+.al td.att .sub, .al td.ev .sub { color: var(--faint); font-size: 11.5px; line-height: 1.25; }
+.al td.att .rf { line-height: 1.3; }
+.al td.att sup { color: var(--muted); font-weight: 600; margin-left: 1px; }
+.al td.cl { width: 48px; }
+.al td.ln { width: 46px; font: 12px var(--mono); color: var(--muted); cursor: help; }
+.al td.ev { width: 128px; line-height: 1.3; }
+.al td.rc { width: 120px; font-size: 12.5px; line-height: 1.3; }
+.al td.rc small { font: 10.5px var(--mono); color: var(--faint); margin-right: 4px; }
+.al td.nd { line-height: 1.9; }
+.al td.cm { cursor: pointer; }
+.al tr.clsrow td { height: 34px; padding-top: 10px; font-size: 12.5px; color: var(--muted); background: var(--surface); }
+.al tr.clsrow td b.fid { font: 600 12px var(--mono); color: var(--ink); margin-right: 8px; }
+.al tr.clsrow td .cn { color: var(--ink); font-weight: 600; margin-right: 10px; }
+.cond { display: inline-flex; align-items: center; gap: 5px; margin: 1px 5px 1px 0; padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; line-height: 20px; background: var(--surface); cursor: pointer; white-space: nowrap; }
+.cond small { font: 10px var(--mono); color: var(--faint); }
+.cond:hover { border-color: var(--muted); }
+.cond.usual { color: var(--faint); border-style: dashed; }
+.usual-more { font-size: 11.5px; color: var(--faint); cursor: help; white-space: nowrap; }
+.legend3 { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; margin-top: 16px; padding: 11px 14px; background: var(--soft); border-radius: 6px; font-size: 12px; color: var(--muted); }
+.legend3 .grp { display: inline-flex; gap: 6px; align-items: center; }
+.legend3 b { color: var(--ink); font-weight: 600; margin-right: 2px; }
+
+/* ---------- assumption panel ---------- */
+.apanel { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px 8px; margin-bottom: 10px; background: var(--soft); }
+.ap-head { display: flex; gap: 12px; align-items: baseline; margin-bottom: 6px; font-size: 12px; color: var(--muted); }
+.ap-head b { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink); }
+.ap-head .key { margin-left: auto; display: inline-flex; gap: 12px; align-items: center; }
+.ap-body { display: flex; flex-wrap: wrap; gap: 6px 5px; align-items: center; }
+.ap-g { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.ap-l { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); font-weight: 600; margin: 0 0 0 12px; }
+.ap-l:first-child { margin-left: 0; }
+.ach { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0 8px; font-size: 12px; line-height: 22px; cursor: pointer; white-space: nowrap; color: var(--ink); }
+.ach small { font: 10px var(--mono); color: var(--faint); }
+.ach em { font: normal 600 10.5px var(--mono); color: var(--muted); background: var(--soft); border-radius: 999px; padding: 0 5px; min-width: 18px; text-align: center; }
+.ach:hover { border-color: var(--muted); }
+.ach.need { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.ach.need small { color: color-mix(in srgb, var(--surface) 65%, transparent); }
+.ach.need em { background: color-mix(in srgb, var(--surface) 22%, transparent); color: var(--surface); }
+.ach.need::before { content: "✓"; font-weight: 700; }
+.ach.out { border: 1.5px dashed var(--bad); color: var(--bad); background: color-mix(in srgb, var(--bad) 7%, var(--surface)); }
+.ach.out span { text-decoration: line-through; }
+.ach.out::before { content: "⊘"; }
+.ach.out em, .ach.out small { color: var(--bad); }
+.ach.zero:not(.need):not(.out) { color: var(--faint); }
+.filters select { max-width: 215px; }
+.al.compact .cond small { display: none; }
+.al.compact .cond { font-size: 11.5px; padding: 0 6px; margin-right: 4px; }
+.al.compact th.cm { text-transform: none; letter-spacing: 0; font-size: 11.5px; color: var(--muted); }
+.al.compact td.ln { width: 36px; }
+.al.compact td { padding-top: 4px; padding-bottom: 4px; }
+.paper .ach { font-size: 11.5px; padding: 0 6px; line-height: 21px; gap: 4px; }
+.paper .ap-l { margin-left: 7px; }
+.paper .ap-head { margin-bottom: 4px; }
+.paper .ap-body { gap: 5px 4px; }
+.paper .apanel { padding: 8px 10px 7px; }
+.al.compact tr.clsrow td { height: 28px; padding-top: 6px; }
+.al.compact td.ev .sub, .al.compact td.rc { white-space: nowrap; }
+.al.compact td.ev { width: 150px; }
+.al.compact td.rc { width: 140px; }
+.al.compact td.att { width: 175px; }
+.al.compact th.cm, .al.compact td.cm { width: 58px; }
+.fbody.paper { height: var(--ph, 700px); overflow: hidden; padding: 18px 24px 20px; }
+.fbody.paper .ptitle { margin-bottom: 8px; }
+.paper .drawer { padding: 18px 24px; }
+.drawer .gotop { display: inline-block; margin-top: 4px; font-weight: 500; text-decoration: none; }
+.paper .drawer .grp { margin-top: 8px; }
+.paper .drawer .where .cd { font-size: 14px; }
+.paper .drawer .dchip { padding: 1px 7px; }
+.paper .drawer .pt { line-height: 1.38; }
+.paper .drawer .where { padding: 5px 10px; gap: 1px; }
+.paper .drawer .kick { margin-bottom: 4px; }
+.paper .drawer .row { margin-top: 5px; gap: 5px; }
+.fbody.paper.auto { height: auto; overflow: visible; padding-bottom: 26px; }
+.fbody.paper .ptitle h1 { font-size: 20px; }
+.fm.compact tr.ln > td { height: 28px; }
+.fm.compact tr.proc td { height: 26px; padding-top: 4px; }
+.fm.compact td.att { padding-top: 2px; padding-bottom: 2px; }
+
+/* ---------- paper exports: light sand ground so the figure separates from the white page ---------- */
+:root:not([data-theme="dark"]) .frame[id^="fig"] { background: #FAF9F6; border-color: #DEDBD4; --soft: #F2F1EC; --line: #E6E3DC; --hl: rgba(120, 110, 90, 0.07); }
+:root:not([data-theme="dark"]) .frame[id^="fig"] .fhead { background: #F2F0EB; border-bottom-color: #DEDBD4; }
+:root:not([data-theme="dark"]) .frame[id^="fig"] .fm tr.proc td, :root:not([data-theme="dark"]) .frame[id^="fig"] .al tr.clsrow td { background: transparent; }
+
+/* ---------- heatmap ---------- */
+table.hm { width: 100%; font-size: 12.5px; table-layout: fixed; }
+.hm th { font-weight: 500; color: var(--muted); font-size: 11px; line-height: 1.2; padding: 4px 2px 6px; text-align: center; vertical-align: bottom; border-bottom: 1px solid var(--line); }
+.hm th small { display: block; font: 600 9.5px var(--mono); color: var(--faint); margin-top: 3px; }
+.hm thead tr.g th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); font-weight: 600; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.hm th.rowh, .hm td.rowh { width: 230px; text-align: left; padding-left: 4px; }
+.hm td.rowh b { font: 600 12px var(--mono); margin-right: 8px; }
+.hm td.rowh span { color: var(--ink); }
+.hm td.rowh small { display: block; color: var(--faint); font-size: 11px; }
+.hm td { height: 40px; border-bottom: 1px solid var(--surface); }
+.hm td.c { text-align: center; font: 600 12px var(--mono); color: var(--ink); cursor: pointer; border-left: 2px solid var(--surface); border-radius: 4px; }
+.hm td.c.z { color: transparent; }
+.hm td.c:hover { outline: 2px solid var(--muted); outline-offset: -2px; }
+.hm .gs { border-left: 6px solid var(--surface) !important; }
+.hm-legend { display: flex; gap: 18px; align-items: center; margin-top: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.hm-legend .ramp { display: inline-flex; border-radius: 3px; overflow: hidden; }
+.hm-legend .ramp span { width: 26px; height: 12px; }
+.ripple { position: absolute; z-index: 30; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; border: 2px solid var(--ann); background: transparent; pointer-events: none; margin: -2px 0 0 4px; }
+body.nopins .ripple { display: none; }
+
+/* ---------- drawer ---------- */
+.drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 450px; background: var(--surface); border-left: 1px solid var(--line); padding: 24px 26px; overflow: hidden; z-index: 20; }
+.drawer .x { position: absolute; right: 16px; top: 14px; border: 0; background: var(--soft); border-radius: 7px; width: 30px; height: 30px; font-size: 16px; cursor: pointer; }
+.drawer h3 { margin: 0 0 4px; font-size: 18px; letter-spacing: -0.01em; padding-right: 40px; }
+.drawer .pt { color: var(--muted); font-size: 13px; line-height: 1.45; }
+.drawer .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.drawer .grp { margin-top: 15px; }
+.dchip { font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--line); white-space: nowrap; }
+.dchip.on { background: var(--surface); color: var(--ink); border-color: color-mix(in srgb, var(--ink) 30%, transparent); }
+.dchip.usual { color: var(--faint); border-style: dashed; }
+.dchip.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); border-color: transparent; color: var(--bad); }
+.dchip.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); border-color: transparent; color: var(--ok); }
+.drawer .where { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 13px; display: grid; gap: 4px; }
+.drawer .where .ln { display: flex; gap: 10px; align-items: baseline; }
+.drawer .where .no { font: 11px var(--mono); color: var(--faint); min-width: 22px; text-align: right; }
+.drawer .where .cd { font-family: var(--math); font-size: 14.5px; }
+.drawer dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; font-size: 13px; }
+.drawer dt { color: var(--muted); }
+.drawer dd { margin: 0; }
+.drawer .lnk { color: var(--link); font-size: 13px; }
+.scrim { display: none; }
+
+/* ---------- hardware table ---------- */
+table.hw { width: 100%; font-size: 13px; }
+.hw th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); font-weight: 600; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.hw td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: middle; line-height: 1.4; }
+.hw tr.r:hover > td { background: var(--hl); }
+.hw tr.r.sel > td { background: rgba(var(--heat), 0.07); }
+.hw td.att { cursor: pointer; width: 190px; }
+.hw td.att .sub { color: var(--faint); font-size: 11.5px; }
+.hw td .mut, .hw td.mut { color: var(--muted); }
+.hw td sup { font-weight: 600; color: var(--muted); }
+.hw tr.clsrow td { height: 34px; padding-top: 10px; font-size: 12.5px; color: var(--muted); }
+.hw tr.clsrow td b.fid { font: 600 12px var(--mono); color: var(--ink); margin-right: 8px; }
+.hw tr.clsrow td .cn { color: var(--ink); font-weight: 600; margin-right: 10px; }
+.val { display: inline-flex; align-items: center; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; line-height: 21px; cursor: pointer; white-space: nowrap; background: var(--surface); }
+.val:hover { border-color: var(--muted); }
+.val.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.inj { width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; flex: none; }
+
+/* ---------- plain tables ---------- */
+table.tbl { width: 100%; font-size: 13px; }
+.tbl th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); font-weight: 600; padding: 8px 14px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tbl td { text-align: left; vertical-align: top; padding: 9px 14px 9px 0; border-bottom: 1px solid var(--line); line-height: 1.45; }
+.tbl td.n { white-space: nowrap; }
+.tbl td .fa { color: var(--faint); font-size: 12px; }
+.tbl td .mut, .tbl td.mut { color: var(--muted); }
+.tbl tbody tr:hover td { background: var(--hl); }
+.pchip { display: inline-block; margin: 1px 6px 3px 0; padding: 1px 8px; border-radius: 4px; background: var(--soft); font-size: 12px; white-space: nowrap; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 22px 24px; display: grid; gap: 10px; align-content: start; }
+.card h3 { margin: 0; font-size: 16px; }
+.card p { margin: 0; color: var(--muted); font-size: 13.5px; }
+.btn { justify-self: start; padding: 6px 13px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); font-size: 13px; margin-top: 6px; }
+.btn:disabled { color: var(--muted); cursor: default; }
+
+/* ---------- live site shell ---------- */
+body { background: var(--surface); }
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 50; background: var(--surface); border-bottom: 1px solid var(--line); }
+.wrap { max-width: 1360px; margin: 0 auto; padding-inline: 28px; }
+header.top .fhead { border-bottom: 0; padding: 14px 0 0; flex-wrap: wrap; row-gap: 6px; }
+.tabs { overflow-x: auto; scrollbar-width: none; }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 0 0 11px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
+main.wrap { padding-block: 6px 60px; }
+main .fbody { padding: 22px 0 10px; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; height: 100%; z-index: 80; overflow-y: auto; }
+.scrim { display: block !important; position: fixed; inset: 0; background: rgba(15, 18, 24, 0.16); z-index: 79; pointer-events: auto; }
+footer.site { border-top: 1px solid var(--line); color: var(--faint); font-size: 12px; }
+footer.site .wrap { padding-block: 18px 28px; display: flex; gap: 18px; flex-wrap: wrap; }
+@media (max-width: 720px) { .wrap { padding-inline: 16px; } .drawer { width: 100%; } .tabs { margin-left: 0; width: 100%; gap: 16px; } .legend2 { grid-template-columns: 1fr 1fr; } .cards { grid-template-columns: 1fr; } }
+</style>
+<div id="hc" class="hc"></div>
+<header class="top"><div class="wrap fhead">
+  <div class="logo">ABC for Fault Attacks on ML-DSA</div>
+  <nav class="tabs" aria-label="Views">
+    <button type="button" data-v="map">Fault map</button><button type="button" data-v="matrix">Attack matrix</button><button type="button" data-v="hardware">Hardware experiments</button><button type="button" data-v="implementations">Open-source implementations</button><button type="button" data-v="patents">Patents</button><button type="button" data-v="contribute">Contribute</button>
+  </nav>
+</div></header>
+<main class="wrap">
+  <section data-v="map"><div class="fbody" id="v-map"></div></section>
+  <section data-v="matrix" hidden><div class="fbody" id="v-abc"></div></section>
+  <section data-v="hardware" hidden><div class="fbody" id="v-hw"></div></section>
+  <section data-v="implementations" hidden><div class="fbody" id="v-impl"></div></section>
+  <section data-v="patents" hidden><div class="fbody" id="v-pt"></div></section>
+  <section data-v="contribute" hidden><div class="fbody" id="v-con"></div></section>
+</main>
+<footer class="site"><div class="wrap"><span>Anonymous submission</span><span>Generated from the tables of the paper</span></div></footer>
+<script id="d" type="application/json">{"sections":{"title:Introduction":{"num":"I","title":"Introduction"},"title:Terminology and Related Work":{"num":"II","title":"Terminology and Related Work"},"title:Module-Lattice Digital Signature Algorithm":{"num":"III","title":"Module-Lattice Digital Signature Algorithm"},"sec:abc":{"num":"IV","title":"Assumption-Based Classification"},"title:Assumption-Based Classification":{"num":"IV","title":"Assumption-Based Classification"},"sec:attackers_assumptions_evaluation":{"num":"V","title":"What assumptions do attacks make?"},"title:What assumptions do attacks make?":{"num":"V","title":"What assumptions do attacks make?"},"sec:access":{"num":"V-A","title":"Access"},"title:Access":{"num":"V-A","title":"Access"},"title:Control":{"num":"V-B","title":"Control"},"sec:system_fault_effect":{"num":"V-C","title":"System and fault effect"},"title:System and fault effect":{"num":"V-C","title":"System and fault effect"},"sec:key_recovery":{"num":"V-D","title":"Key Recovery"},"title:Key Recovery":{"num":"V-D","title":"Key Recovery"},"title:What assumptions do attacks break?":{"num":"VI","title":"What assumptions do attacks break?"},"sec:defending-mldsa":{"num":"VII","title":"Defending ML-DSA"},"title:Defending ML-DSA":{"num":"VII","title":"Defending ML-DSA"},"sec:eval_gen_cm":{"num":"VII-A","title":"Evaluation of Generic Countermeasures"},"title:Evaluation of Generic Countermeasures":{"num":"VII-A","title":"Evaluation of Generic Countermeasures"},"sec:S":{"num":"VII-A1","title":"Shuffling (S)"},"title:Shuffling (S)":{"num":"VII-A1","title":"Shuffling (S)"},"sec:M":{"num":"VII-A2","title":"Masking (M)"},"title:Masking (M)":{"num":"VII-A2","title":"Masking (M)"},"sec:V":{"num":"VII-A3","title":"Verify-after-Sign (V)"},"title:Verify-after-Sign (V)":{"num":"VII-A3","title":"Verify-after-Sign (V)"},"sec:D":{"num":"VII-A4","title":"Double Computation (D)"},"title:Double Computation (D)":{"num":"VII-A4","title":"Double Computation (D)"},"sec:H":{"num":"VII-A5","title":"Hedged Signing (H)"},"title:Hedged Signing (H)":{"num":"VII-A5","title":"Hedged Signing (H)"},"sec:cm_fault_class":{"num":"VII-B","title":"Countermeasures by Fault Class"},"title:Countermeasures by Fault Class":{"num":"VII-B","title":"Countermeasures by Fault Class"},"sec:cm-f1":{"num":"VII-B1","title":"Faults Propagating to s1"},"title:Faults Propagating to s1":{"num":"VII-B1","title":"Faults Propagating to s1"},"sec:cm-f5f6":{"num":"VII-B2","title":"Faults Propagating to a Repeated or Known y"},"title:Faults Propagating to a Repeated or Known y":{"num":"VII-B2","title":"Faults Propagating to a Repeated or Known y"},"sec:cm-y":{"num":"VII-B3","title":"Faults Propagating to y, Its Polynomials or Coefficients"},"title:Faults Propagating to y, Its Polynomials or Coefficients":{"num":"VII-B3","title":"Faults Propagating to y, Its Polynomials or Coefficients"},"sec:cm-f2":{"num":"VII-B4","title":"Faults Propagating to c"},"title:Faults Propagating to c":{"num":"VII-B4","title":"Faults Propagating to c"},"sec:cm-f10f11":{"num":"VII-B5","title":"Skipped Rejection Checks"},"title:Skipped Rejection Checks":{"num":"VII-B5","title":"Skipped Rejection Checks"},"sec:cm-f2v":{"num":"VII-B6","title":"Faults in Verify"},"title:Faults in Verify":{"num":"VII-B6","title":"Faults in Verify"},"sec:open":{"num":"VIII","title":"Open Problems and Outlook"},"title:Open Problems and Outlook":{"num":"VIII","title":"Open Problems and Outlook"},"title:Conclusion":{"num":"IX","title":"Conclusion"}},"extras":{"implementations":[{"name":"pq-crystals/dilithium (reference)","url":"https://github.com/pq-crystals/dilithium","lang":"C, x86 AVX2","platform":"Reference implementation; basis of most other code","match":"pq-crystals|reference"},{"name":"PQClean","url":"https://github.com/PQClean/PQClean","lang":"C","platform":"Portable reference basis","match":"pqclean"},{"name":"pqm4","url":"https://github.com/mupq/pqm4","lang":"C, ARM assembly","platform":"Cortex-M4 microcontrollers","match":"pqm4"},{"name":"liboqs","url":"https://github.com/open-quantum-safe/liboqs","lang":"C","platform":"Server, general purpose","match":"liboqs"},{"name":"OpenSSL","url":"https://github.com/openssl/openssl","lang":"C","platform":"Server, general purpose","match":"openssl"},{"name":"AWS-LC","url":"https://github.com/aws/aws-lc","lang":"C","platform":"Server, general purpose","match":"aws-lc"},{"name":"wolfSSL","url":"https://github.com/wolfSSL/wolfssl","lang":"C","platform":"Embedded and server","match":"wolfssl"},{"name":"Botan","url":"https://github.com/randombit/botan","lang":"C++","platform":"Server, general purpose","match":"botan"},{"name":"itzmeanjan/ml-dsa","url":"https://github.com/itzmeanjan/ml-dsa","lang":"C++ (header-only)","platform":"General purpose","match":"itzmeanjan"},{"name":"Bouncy Castle","url":"https://github.com/bcgit/bc-java","lang":"Java","platform":"JVM","match":"bouncy|bc-java"},{"name":"CIRCL","url":"https://github.com/cloudflare/circl","lang":"Go","platform":"Server","match":"circl"},{"name":"Go standard library (crypto/mldsa)","url":"https://pkg.go.dev/crypto/mldsa","lang":"Go","platform":"Server","match":"crypto/mldsa"},{"name":"libcrux","url":"https://github.com/cryspen/libcrux","lang":"Rust (formally verified)","platform":"Server","match":"libcrux"},{"name":"pqcrypto (Rust)","url":"https://github.com/rustpq/pqcrypto","lang":"Rust bindings to PQClean","platform":"Server","match":"rustpq"},{"name":"OpenTitan","url":"https://github.com/lowRISC/opentitan","lang":"OTBN assembly","platform":"RISC-V silicon root of trust","match":"opentitan"}]},"faultMap":[{"type":"head","html":"<b>KeyGen<\/b><span class=\"m\">(ξ)<\/span>"},{"type":"code","id":"01","no":"01","indent":0,"html":"<span class=\"m\">(ρ, ρ', K) := H(ξ)<\/span>","comment":"","proc":"KeyGen","labels":["F1-K"],"heat":14,"tags":[{"id":"CA1","mech":"dt","ours":true,"tested":false},{"id":"CI1","mech":"dt","ours":false,"tested":false}],"gen":{"M":0,"S":0,"V":null,"D":null,"H":null},"inFigure":true,"figHtml":"<span class=\"m\">(ρ, ρ', K) := H(ξ)<\/span>"},{"type":"code","id":"02","no":"02","indent":0,"html":"<span class=\"m\"><b>Â<\/b> := ExpandA(ρ)<\/span>","comment":"","proc":"KeyGen","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"03","no":"03","indent":0,"html":"<span class=\"m\">(<b>s<\/b><sub>1<\/sub>, <b>s<\/b><sub>2<\/sub>) := ExpandS(ρ')<\/span>","comment":"","proc":"KeyGen","labels":["F1-K"],"heat":14,"tags":[{"id":"CA2","mech":"dt","ours":false,"tested":false}],"gen":{"M":0,"S":0,"V":null,"D":null,"H":null},"inFigure":true,"figHtml":"<span class=\"m\">(<b>s<\/b><sub>1<\/sub>, <b>s<\/b><sub>2<\/sub>) := ExpandS(ρ')<\/span>"},{"type":"code","id":"04","no":"04","indent":0,"html":"<span class=\"m\"><b>t<\/b> := NTT<sup>-1<\/sup>(<b>Â<\/b> ∘ NTT(<b>s<\/b><sub>1<\/sub>)) + <b>s<\/b><sub>2<\/sub><\/span>","comment":"","proc":"KeyGen","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"05","no":"05","indent":0,"html":"<span class=\"m\">(<b>t<\/b><sub>1<\/sub>, <b>t<\/b><sub>0<\/sub>) := Power2Round(<b>t<\/b>)<\/span>","comment":"","proc":"KeyGen","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"06","no":"06","indent":0,"html":"<span class=\"m\">pk := (ρ, <b>t<\/b><sub>1<\/sub>)<\/span>; <span class=\"m\">tr := H(pk)<\/span>","comment":"","proc":"KeyGen","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"07","no":"07","indent":0,"html":"<b>return<\/b> <span class=\"m\">(pk, sk = (ρ, K, tr, <b>s<\/b><sub>1<\/sub>, <b>s<\/b><sub>2<\/sub>, <b>t<\/b><sub>0<\/sub>))<\/span>","comment":"","proc":"KeyGen","labels":["F1"],"heat":14,"tags":[{"id":"CA3","mech":"tl","ours":true,"tested":false},{"id":"CI2","mech":"dt","ours":false,"tested":false}],"gen":{"M":0,"S":0,"V":4,"D":0,"H":0},"inFigure":true,"figHtml":"<b>return<\/b> <span class=\"m\">(pk, sk)<\/span>"},{"type":"head","html":"<b>Sign<\/b><span class=\"m\">(sk, M', rnd)<\/span>"},{"type":"code","id":"08","no":"08","indent":0,"html":"<span class=\"m\"><b>Â<\/b> := ExpandA(ρ)<\/span>","comment":"","proc":"Sign","labels":["F2"],"heat":14,"tags":[],"gen":{"M":0,"S":0,"V":4,"D":4,"H":0},"inFigure":true,"figHtml":"<span class=\"m\"><b>A<\/b> := ExpandA(ρ)<\/span>"},{"type":"code","id":"09","no":"09","indent":0,"html":"<span class=\"m\">μ := H(tr ‖ M')<\/span>","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"10","no":"10","indent":0,"html":"<span class=\"m\">ρ'' := H(K ‖ rnd ‖ μ)<\/span>","comment":"hedged mode","proc":"Sign","labels":["F5","F6"],"heat":30,"tags":[{"id":"CA4","mech":"tl","ours":false,"tested":false},{"id":"CA5","mech":"dt","ours":true,"tested":false},{"id":"CI3","mech":"hd","ours":false,"tested":false},{"id":"CI4","mech":"dt","ours":false,"tested":false},{"id":"CI5","mech":"dt","ours":false,"tested":false},{"id":"CI1","mech":"dt","ours":false,"tested":false}],"gen":{"M":0,"S":0,"V":0,"D":4,"H":0},"inFigure":true,"figHtml":"<span class=\"m\">ρ'' := H(K ‖ rnd ‖ μ)<\/span>"},{"type":"code","id":"11","no":"11","indent":0,"html":"<span class=\"m\">κ := 0<\/span>; <span class=\"m\">(<b>z<\/b>, <b>h<\/b>) := ⊥<\/span>","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"12","no":"12","indent":0,"html":"<b>while<\/b> <span class=\"m\">(<b>z<\/b>, <b>h<\/b>) = ⊥<\/span> <b>do<\/b>","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"13","no":"13","indent":1,"html":"<span class=\"m\"><b>y<\/b> := ExpandMask(ρ'', κ)<\/span>","comment":"","proc":"Sign","labels":["F5–F9"],"heat":50,"tags":[{"id":"CA6","mech":"bk","ours":false,"tested":false},{"id":"CA7","mech":"dt","ours":false,"tested":false},{"id":"CI6","mech":"hd","ours":true,"tested":false},{"id":"CI7","mech":"tl","ours":false,"tested":false},{"id":"CI1","mech":"dt","ours":false,"tested":false}],"gen":{"M":1,"S":0,"V":0,"D":4,"H":0},"inFigure":true,"figHtml":"<span class=\"m\"><b>y<\/b> := ExpandMask(ρ'', κ)<\/span>"},{"type":"code","id":"14","no":"14","indent":1,"html":"<span class=\"m\"><b>w<\/b> := NTT<sup>-1<\/sup>(<b>Â<\/b> ∘ NTT(<b>y<\/b>))<\/span>","comment":"","proc":"Sign","labels":["F7"],"heat":14,"tags":[{"id":"CI8","mech":"dt","ours":false,"tested":false},{"id":"CI9","mech":"dt","ours":false,"tested":false}],"gen":{"M":4,"S":0,"V":0,"D":4,"H":0},"inFigure":true,"figHtml":"<span class=\"m\"><b>w<\/b> := <b>A<\/b><b>y<\/b><\/span>"},{"type":"code","id":"15","no":"15","indent":1,"html":"<span class=\"m\"><b>w<\/b><sub>1<\/sub> := HighBits(<b>w<\/b>)<\/span>","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"16","no":"16","indent":1,"html":"<span class=\"m\">c̃ := H(μ ‖ <b>w<\/b><sub>1<\/sub>)<\/span>","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"17","no":"17","indent":1,"html":"<span class=\"m\">c := SampleInBall(c̃)<\/span>","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"18","no":"18","indent":1,"html":"<span class=\"m\"><b>z<\/b> := <b>y<\/b> + c<b>s<\/b><sub>1<\/sub><\/span>","comment":"","proc":"Sign","labels":["F3","F4","F7","F9"],"heat":50,"tags":[{"id":"CA8","mech":"dt","ours":true,"tested":false},{"id":"CI8","mech":"dt","ours":false,"tested":false},{"id":"CI10","mech":"bk","ours":false,"tested":false},{"id":"CI11","mech":"bk","ours":false,"tested":false}],"gen":{"M":4,"S":1,"V":3,"D":3,"H":0},"inFigure":true,"figHtml":"<span class=\"m\"><b>z<\/b> := <b>y<\/b> + c<b>s<\/b><sub>1<\/sub><\/span>"},{"type":"code","id":"19","no":"19","indent":1,"html":"<span class=\"m\"><b>r<\/b><sub>0<\/sub> := LowBits(<b>w<\/b> - c<b>s<\/b><sub>2<\/sub>)<\/span>","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"20","no":"20","indent":1,"html":"<b>if<\/b> <span class=\"m\">‖<b>z<\/b>‖<sub>∞<\/sub> ≥ γ<sub>1<\/sub> - β<\/span> <b>or<\/b>","comment":"","proc":"Sign","labels":["F10"],"heat":14,"tags":[{"id":"CA9","mech":"bk","ours":false,"tested":false}],"gen":{"M":0,"S":0,"V":4,"D":4,"H":0},"inFigure":true,"figHtml":"<b>if<\/b> <span class=\"m\">‖<b>z<\/b>‖<sub>∞<\/sub> ≥ γ<sub>1<\/sub>-β<\/span> <b>or<\/b>"},{"type":"code","id":"20b","no":"","indent":3,"html":"<span class=\"m\">‖<b>r<\/b><sub>0<\/sub>‖<sub>∞<\/sub> ≥ γ<sub>2<\/sub> - β<\/span> <b>then<\/b> <span class=\"m\">(<b>z<\/b>, <b>h<\/b>) := ⊥<\/span>","comment":"","proc":"Sign","labels":["F11"],"heat":14,"tags":[{"id":"CA9","mech":"dt","ours":false,"tested":false},{"id":"CI12","mech":"dt","ours":false,"tested":false}],"gen":{"M":0,"S":0,"V":0,"D":4,"H":0},"inFigure":true},{"type":"code","id":"21","no":"21","indent":1,"html":"<b>else<\/b> <span class=\"m\"><b>h<\/b> := MakeHint(-c<b>t<\/b><sub>0<\/sub>, <b>w<\/b> - c<b>s<\/b><sub>2<\/sub> + c<b>t<\/b><sub>0<\/sub>)<\/span>","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"22","no":"22","indent":2,"html":"<b>if<\/b> <span class=\"m\">‖c<b>t<\/b><sub>0<\/sub>‖<sub>∞<\/sub> ≥ γ<sub>2<\/sub><\/span> <b>or<\/b> <span class=\"m\"><b>h<\/b><\/span> has more than <span class=\"m\">ω<\/span> ones","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"22b","no":"","indent":4,"html":"<b>then<\/b> <span class=\"m\">(<b>z<\/b>, <b>h<\/b>) := ⊥<\/span>","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"23","no":"23","indent":1,"html":"<span class=\"m\">κ := κ + ℓ<\/span>","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"24","no":"24","indent":0,"html":"<b>return<\/b> <span class=\"m\">σ = (c̃, <b>z<\/b>, <b>h<\/b>)<\/span>","comment":"","proc":"Sign","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"head","html":"<b>Verify<\/b><span class=\"m\">(pk, M', σ)<\/span>"},{"type":"code","id":"25","no":"25","indent":0,"html":"<span class=\"m\"><b>Â<\/b> := ExpandA(ρ)<\/span>","comment":"","proc":"Verify","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"26","no":"26","indent":0,"html":"<span class=\"m\">tr := H(pk)<\/span>; <span class=\"m\">μ := H(tr ‖ M')<\/span>","comment":"","proc":"Verify","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"27","no":"27","indent":0,"html":"<span class=\"m\">c := SampleInBall(c̃)<\/span>","comment":"","proc":"Verify","labels":["F2-V"],"heat":30,"tags":[{"id":"CA10","mech":"dt","ours":true,"tested":false},{"id":"CI1","mech":"dt","ours":false,"tested":false}],"gen":{"M":0,"S":0,"V":null,"D":null,"H":null},"inFigure":true,"figHtml":"<span class=\"m\">c := SampleInBall(c̃)<\/span>"},{"type":"code","id":"28","no":"28","indent":0,"html":"<span class=\"m\"><b>w<\/b>'<sub>Approx<\/sub> := NTT<sup>-1<\/sup>(<b>Â<\/b> ∘ NTT(<b>z<\/b>) - NTT(c) ∘ NTT(<b>t<\/b><sub>1<\/sub> · 2<sup>d<\/sup>))<\/span>","comment":"","proc":"Verify","labels":["F2-V"],"heat":30,"tags":[{"id":"CA10","mech":"dt","ours":true,"tested":false},{"id":"CA11","mech":"dt","ours":false,"tested":false},{"id":"CI13","mech":"dt","ours":false,"tested":false}],"gen":{"M":0,"S":0,"V":null,"D":null,"H":null},"inFigure":true,"figHtml":"<span class=\"m\"><b>w<\/b>' := <b>A<\/b><b>z<\/b> - c<b>t<\/b><sub>1<\/sub> · 2<sup>d<\/sup><\/span>"},{"type":"code","id":"29","no":"29","indent":0,"html":"<span class=\"m\"><b>w<\/b>'<sub>1<\/sub> := UseHint(<b>h<\/b>, <b>w<\/b>'<sub>Approx<\/sub>)<\/span>","comment":"","proc":"Verify","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false},{"type":"code","id":"30","no":"30","indent":0,"html":"<span class=\"m\">c̃' := H(μ ‖ <b>w<\/b>'<sub>1<\/sub>)<\/span>","comment":"","proc":"Verify","labels":["F2-V"],"heat":14,"tags":[{"id":"CA10","mech":"dt","ours":true,"tested":false},{"id":"CI1","mech":"dt","ours":false,"tested":false}],"gen":{"M":0,"S":0,"V":null,"D":null,"H":null},"inFigure":true,"figHtml":"<span class=\"m\">c̃' := H(μ ‖ <b>w<\/b>'<sub>1<\/sub>)<\/span>"},{"type":"code","id":"31","no":"31","indent":0,"html":"<b>return<\/b> <span class=\"m\">⟦ ‖<b>z<\/b>‖<sub>∞<\/sub> &lt; γ<sub>1<\/sub> - β ⟧<\/span> <b>and<\/b> <span class=\"m\">⟦ c̃ = c̃' ⟧<\/span>","comment":"","proc":"Verify","labels":[],"heat":null,"tags":[],"gen":{},"inFigure":false}],"cmDesc":{"CA2":"Checking the counter (CA2 [<a class=\"cite\" href=\"#paper-ravi2019NumberNotUsed\">ravi2019NumberNotUsed<\/a>]) and loop counters (CI1 [<a class=\"cite\" href=\"#paper-wang2025MindFaultyKeccak\">wang2025MindFaultyKeccak<\/a>]) can possibly each mitigate one attack, comparing the key against precomputed keys from low-entropy inputs stops the third [<a class=\"cite\" href=\"#paper-amer2025PQHammerEndtoEndKey\">amer2025PQHammerEndtoEndKey<\/a>], and running key generation twice from the same <span class=\"m\">ξ<\/span> (CA1) stops transient faults, but not a flip that persists in memory.","CI1":"Checking the counter (CA2 [<a class=\"cite\" href=\"#paper-ravi2019NumberNotUsed\">ravi2019NumberNotUsed<\/a>]) and loop counters (CI1 [<a class=\"cite\" href=\"#paper-wang2025MindFaultyKeccak\">wang2025MindFaultyKeccak<\/a>]) can possibly each mitigate one attack, comparing the key against precomputed keys from low-entropy inputs stops the third [<a class=\"cite\" href=\"#paper-amer2025PQHammerEndtoEndKey\">amer2025PQHammerEndtoEndKey<\/a>], and running key generation twice from the same <span class=\"m\">ξ<\/span> (CA1) stops transient faults, but not a flip that persists in memory.","CA1":"Checking the counter (CA2 [<a class=\"cite\" href=\"#paper-ravi2019NumberNotUsed\">ravi2019NumberNotUsed<\/a>]) and loop counters (CI1 [<a class=\"cite\" href=\"#paper-wang2025MindFaultyKeccak\">wang2025MindFaultyKeccak<\/a>]) can possibly each mitigate one attack, comparing the key against precomputed keys from low-entropy inputs stops the third [<a class=\"cite\" href=\"#paper-amer2025PQHammerEndtoEndKey\">amer2025PQHammerEndtoEndKey<\/a>], and running key generation twice from the same <span class=\"m\">ξ<\/span> (CA1) stops transient faults, but not a flip that persists in memory.","CI2":"Storing copies of <span class=\"m\"><b>s<\/b><sub>1<\/sub><\/span> in separate memory locations (CI2 [<a class=\"cite\" href=\"#paper-islam2022SignatureCorrectionAttack\">islam2022SignatureCorrectionAttack<\/a>]) forces the attacker to flip every copy.","CA3":"Since FIPS 204 permits storing only the seed <span class=\"m\">ξ<\/span> [<a class=\"cite\" href=\"#paper-FIPS204\">FIPS204<\/a>], <span class=\"m\"><b>s<\/b><sub>1<\/sub><\/span> can also be derived for every signature (CA3).","CA5":"Alternatively, the signer can derive <span class=\"m\">ρ''<\/span> and <span class=\"m\"><b>y<\/b>'<\/span> again from <span class=\"m\">K<\/span>, <span class=\"m\">rnd<\/span> and <span class=\"m\">μ<\/span> and check that <span class=\"m\"><b>z<\/b>-c<b>s<\/b><sub>1<\/sub>=<b>y<\/b>'<\/span> (CA5).","CA4":"Including <span class=\"m\">K<\/span> and <span class=\"m\">rnd<\/span> directly in the derivation of <span class=\"m\"><b>y<\/b><\/span> (CA4 [<a class=\"cite\" href=\"#paper-bruinderink2018DifferentialFaultAttacks\">bruinderink2018DifferentialFaultAttacks<\/a>, <a class=\"cite\" href=\"#paper-jendral2024SingleTraceFaultInjection\">jendral2024SingleTraceFaultInjection<\/a>]) removes <span class=\"m\">ρ''<\/span> as a single point of failure, but deviates from FIPS 204 and does not prevent the attack by [<a class=\"cite\" href=\"#paper-elghamrawy2023MLWERLWEDifferential\">elghamrawy2023MLWERLWEDifferential<\/a>], as CA4 leaves the per-polynomial counter unchanged, whose increment this attack skips.","CA7":"Conversely, counting small pairwise differences of polynomials in <span class=\"m\"><b>z<\/b><\/span> (CA7 [<a class=\"cite\" href=\"#paper-elghamrawy2023MLWERLWEDifferential\">elghamrawy2023MLWERLWEDifferential<\/a>]) detects only this attack, which NXP patented together with a variant with a higher false-negative rate [<a class=\"cite\" href=\"#paper-schoenauer2025FaultDetectionDifferential\">schoenauer2025FaultDetectionDifferential<\/a>].","CI3":"inlining the absorption (CI3 [<a class=\"cite\" href=\"#paper-jendral2024SingleTraceFaultInjection\">jendral2024SingleTraceFaultInjection<\/a>]) and checking that the state is not empty (CI4 [<a class=\"cite\" href=\"#paper-jendral2024SingleTraceFaultInjection\">jendral2024SingleTraceFaultInjection<\/a>]) against the skipped call, loop-completion checks (CI5 [<a class=\"cite\" href=\"#paper-du2025BreakingShieldNovel\">du2025BreakingShieldNovel<\/a>]) and loop counters (CI1 [<a class=\"cite\" href=\"#paper-wang2025MindFaultyKeccak\">wang2025MindFaultyKeccak<\/a>]) against aborted loops, and checks on the seed and a redundant copy of its pointer against the redirected pointer [<a class=\"cite\" href=\"#paper-valsaraj2025WhenRandomnessIsnt\">valsaraj2025WhenRandomnessIsnt<\/a>].","CI4":"inlining the absorption (CI3 [<a class=\"cite\" href=\"#paper-jendral2024SingleTraceFaultInjection\">jendral2024SingleTraceFaultInjection<\/a>]) and checking that the state is not empty (CI4 [<a class=\"cite\" href=\"#paper-jendral2024SingleTraceFaultInjection\">jendral2024SingleTraceFaultInjection<\/a>]) against the skipped call, loop-completion checks (CI5 [<a class=\"cite\" href=\"#paper-du2025BreakingShieldNovel\">du2025BreakingShieldNovel<\/a>]) and loop counters (CI1 [<a class=\"cite\" href=\"#paper-wang2025MindFaultyKeccak\">wang2025MindFaultyKeccak<\/a>]) against aborted loops, and checks on the seed and a redundant copy of its pointer against the redirected pointer [<a class=\"cite\" href=\"#paper-valsaraj2025WhenRandomnessIsnt\">valsaraj2025WhenRandomnessIsnt<\/a>].","CI5":"inlining the absorption (CI3 [<a class=\"cite\" href=\"#paper-jendral2024SingleTraceFaultInjection\">jendral2024SingleTraceFaultInjection<\/a>]) and checking that the state is not empty (CI4 [<a class=\"cite\" href=\"#paper-jendral2024SingleTraceFaultInjection\">jendral2024SingleTraceFaultInjection<\/a>]) against the skipped call, loop-completion checks (CI5 [<a class=\"cite\" href=\"#paper-du2025BreakingShieldNovel\">du2025BreakingShieldNovel<\/a>]) and loop counters (CI1 [<a class=\"cite\" href=\"#paper-wang2025MindFaultyKeccak\">wang2025MindFaultyKeccak<\/a>]) against aborted loops, and checks on the seed and a redundant copy of its pointer against the redirected pointer [<a class=\"cite\" href=\"#paper-valsaraj2025WhenRandomnessIsnt\">valsaraj2025WhenRandomnessIsnt<\/a>].","CI6":"Random delays [<a class=\"cite\" href=\"#paper-ravi2022FiddlingTwiddleConstants\">ravi2022FiddlingTwiddleConstants<\/a>] or random start of the rejection loop (CI6) make the first iteration harder to time.","CA6":"Rejecting low-degree <span class=\"m\"><b>y<\/b><\/span> (CA6 [<a class=\"cite\" href=\"#paper-espitau2018LoopAbortFaultsLatticeBased\">espitau2018LoopAbortFaultsLatticeBased<\/a>]) fails, as zeroing a single coefficient suffices [<a class=\"cite\" href=\"#paper-ulitzsch2023LoopAbortsStrike\">ulitzsch2023LoopAbortsStrike<\/a>], and shuffling fails, as the recovery either does not need the positions of the zeroed coefficients or reads them from <span class=\"m\"><b>z<\/b><\/span> [<a class=\"cite\" href=\"#paper-ulitzsch2023LoopAbortsStrike\">ulitzsch2023LoopAbortsStrike<\/a>, <a class=\"cite\" href=\"#paper-azevedo-oliveira2025AttackMLDSAUsing\">azevedo-oliveira2025AttackMLDSAUsing<\/a>].","CI7":"Masking (CI7) thus helps only if each share is sampled in its own loop.","CI8":"In the addition, CRT lifting (CI8 [<a class=\"cite\" href=\"#paper-heinz2023CombinedFaultDPA\">heinz2023CombinedFaultDPA<\/a>]) detects the skip with high probability [<a class=\"cite\" href=\"#paper-krahmer2024CorrectionFaultAttacks\">krahmer2024CorrectionFaultAttacks<\/a>], as the faulty result no longer matches the precomputed check values.","CI10":"computing <span class=\"m\"><b>z<\/b><\/span> in the NTT domain (CI10 [<a class=\"cite\" href=\"#paper-ravi2019ExploitingDeterminismLatticebased\">ravi2019ExploitingDeterminismLatticebased<\/a>]) lets faults on the NTT of <span class=\"m\"><b>y<\/b><\/span> reach <span class=\"m\"><b>z<\/b><\/span> [<a class=\"cite\" href=\"#paper-ravi2022FiddlingTwiddleConstants\">ravi2022FiddlingTwiddleConstants<\/a>], and writing <span class=\"m\"><b>y<\/b><\/span> into <span class=\"m\"><b>z<\/b><\/span> first (CI11 [<a class=\"cite\" href=\"#paper-bindel2016LatticeBasedSignatureSchemes\">bindel2016LatticeBasedSignatureSchemes<\/a>]) leaves a coefficient of <span class=\"m\"><b>y<\/b><\/span> in <span class=\"m\"><b>z<\/b><\/span> that the attack by [<a class=\"cite\" href=\"#paper-ravi2019ExploitingDeterminismLatticebased\">ravi2019ExploitingDeterminismLatticebased<\/a>] exploits under deterministic signing and the correction attack by [<a class=\"cite\" href=\"#paper-krahmer2024CorrectionFaultAttacks\">krahmer2024CorrectionFaultAttacks<\/a>] under hedged signing.","CI11":"computing <span class=\"m\"><b>z<\/b><\/span> in the NTT domain (CI10 [<a class=\"cite\" href=\"#paper-ravi2019ExploitingDeterminismLatticebased\">ravi2019ExploitingDeterminismLatticebased<\/a>]) lets faults on the NTT of <span class=\"m\"><b>y<\/b><\/span> reach <span class=\"m\"><b>z<\/b><\/span> [<a class=\"cite\" href=\"#paper-ravi2022FiddlingTwiddleConstants\">ravi2022FiddlingTwiddleConstants<\/a>], and writing <span class=\"m\"><b>y<\/b><\/span> into <span class=\"m\"><b>z<\/b><\/span> first (CI11 [<a class=\"cite\" href=\"#paper-bindel2016LatticeBasedSignatureSchemes\">bindel2016LatticeBasedSignatureSchemes<\/a>]) leaves a coefficient of <span class=\"m\"><b>y<\/b><\/span> in <span class=\"m\"><b>z<\/b><\/span> that the attack by [<a class=\"cite\" href=\"#paper-ravi2019ExploitingDeterminismLatticebased\">ravi2019ExploitingDeterminismLatticebased<\/a>] exploits under deterministic signing and the correction attack by [<a class=\"cite\" href=\"#paper-krahmer2024CorrectionFaultAttacks\">krahmer2024CorrectionFaultAttacks<\/a>] under hedged signing.","CA8":"Counting these small coefficients (CA8), as CA7 counts small differences, detects faults that zero many coefficients, but not faults on only a few.","CI9":"NXP patented a countermeasure that adds a row holding a weighted sum of the rows of <span class=\"m\"><b>A<\/b><\/span> and checks the product against it, optionally with shuffled rows or columns (CI9 [<a class=\"cite\" href=\"#paper-azouaoui2025FaultDetectionPostquantum\">azouaoui2025FaultDetectionPostquantum<\/a>]).","CA9":"A patent application proposes a third rejection test that checks <span class=\"m\"><b>w<\/b><sub>1<\/sub>=HighBits(<b>A<\/b><b>z<\/b>-c<b>t<\/b>)<\/span> before the signature is released (CA9 [<a class=\"cite\" href=\"#paper-azevedooliveira2025ProtectingFaultAttacksWO\">azevedooliveira2025ProtectingFaultAttacksWO<\/a>]).","CI12":"A second patent application transforms <span class=\"m\"><b>r<\/b><sub>0<\/sub><\/span> such that skipping the check leaves, with high probability, too many nonzero coefficients in the hint, causing the hint check to reject the signature (CI12 [<a class=\"cite\" href=\"#paper-azevedooliveira2025ProtectingFaultAttacksEP\">azevedooliveira2025ProtectingFaultAttacksEP<\/a>]). begin{observation} Optimizations harmless without faults, such as computing the hint from <span class=\"m\"><b>w<\/b><sub>1<\/sub><\/span>, can make V miss a skipped check on <span class=\"m\"><b>r<\/b><sub>0<\/sub><\/span>.","CA10":"Executing Verify twice and accepting a signature only if both executions accept it (CA10) extends D to Verify and detects every transient fault, at twice the cost of verification.","CA11":"Requiring <span class=\"m\">c<b>t<\/b><sub>1<\/sub> · 2<sup>d<\/sup><\/span> to be nonzero and of sufficiently large norm (CA11 [<a class=\"cite\" href=\"#paper-calleviera2023FaultAttacksSensitivity\">calleviera2023FaultAttacksSensitivity<\/a>], filed as a patent application [<a class=\"cite\" href=\"#paper-berzati2025SecuringFaultAttacksVerification\">berzati2025SecuringFaultAttacksVerification<\/a>]) detects a zero challenge and a skipped shift.","CI13":"Adding the same random vector to both operands of the subtraction (CI13 [<a class=\"cite\" href=\"#paper-bauer2023ForgingDilithiumFalcon\">bauer2023ForgingDilithiumFalcon<\/a>], filed as a patent application [<a class=\"cite\" href=\"#paper-bauer2025SignatureVerificationDilithium\">bauer2025SignatureVerificationDilithium<\/a>]) causes Verify to reject a signature whose subtraction was skipped."},"rows":[{"id":1,"cls":"F1","key":"ravi2019NumberNotUsed","year":2019,"notes":["e"],"eprint":false,"alg":"K","eval":"T","det":"-","hed":"-","rec":"R3","K1":"Y","K2":"-","K3":"Y","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"-","T8":"-","T9":"-","T10":"-","T11":"-","T12":"N","T13":"Y","T14":"N","T15":"-","S":"bypassed-ours","M":"bypassed-ours","V":"-","D":"-","H":"-","hw":{"injection":"EMFI","cw":"–","proc":"Cortex-M4","device":"STM32F407","impl":"pqm4","notes":{"injection":["a"]}},"lines":["03"],"fault":"Skips the nonce update for each of the k+ℓ polynomials in ExpandS (k+ℓ faults), so s1 and s2 come from the same input"},{"id":2,"cls":"F1","key":"wang2025MindFaultyKeccak","year":2025,"notes":[],"eprint":false,"alg":"K","eval":"E","det":"-","hed":"-","rec":"R1","K1":"-","K2":"-","K3":"N","K4":"N","K5":"-","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"-","T8":"-","T9":"-","T10":"-","T11":"-","T12":"Y","T13":"Y","T14":"N","T15":"-","S":"bypassed-argued","M":"bypassed-argued","V":"-","D":"-","H":"-","hw":{"injection":"EMFI","cw":"n.s.","proc":"Cortex-M4","device":"STM32F407ZGT6","impl":"PQClean <code>clean<\/code>","notes":{"device":["e"]}},"lines":["01","03"],"fault":"Faults the SHAKE256 call that expands ξ, or the calls that sample s1, so the seed or s1 becomes known"},{"id":3,"cls":"F1","key":"amer2025PQHammerEndtoEndKey","year":2025,"notes":[],"eprint":false,"alg":"K","cellNotes":{"eval":"d"},"eval":"E","det":"-","hed":"-","rec":"R1","K1":"-","K2":"-","K3":"N","K4":"N","K5":"-","T1":"N","T2":"Y","T3":"N","T4":"N","T5":"Y","T6":"Y","T7":"-","T8":"-","T9":"-","T10":"-","T11":"-","T12":"Y","T13":"N","T14":"N","T15":"-","S":"bypassed-ours","M":"bypassed-ours","V":"-","D":"-","H":"-","hw":{"injection":"Rowhammer","cw":"–","proc":"–","device":"–","impl":"pq-crystals reference","notes":{"injection":["b"]}},"lines":["01"],"fault":"Rowhammer flip of the length argument of SHAKE256 (32 → 0): ξ is not hashed and the key becomes a known constant"},{"id":4,"cls":"F1","key":"islam2022SignatureCorrectionAttack","year":2022,"notes":["a"],"eprint":false,"alg":"S","eval":"E","det":"works-argued","hed":"works-demo","rec":"R5","K1":"N","K2":"N","K3":"N","K4":"Y","K5":"Y","T1":"N","T2":"Y","T3":"N","T4":"N","T5":"N","T6":"Y","T7":"N","T8":"N","T9":"N","T10":"N","T11":"N","T12":"N","T13":"N","T14":"N","T15":"N","S":"bypassed-ours","cellNotes":{"M":"i"},"M":"bypassed-ours","V":"holds-argued","D":"bypassed-argued","H":"bypassed-demo","hw":{"injection":"Rowhammer","cw":"–","proc":"Intel i7-4770","device":"DDR3 DRAM","impl":"pq-crystals AVX2, Dilithium-2","notes":{}},"lines":["07"],"fault":"Rowhammer bit flips in the stored s1; each flip is found by correcting the faulty signature against the public key"},{"id":5,"cls":"F2","key":"bruinderink2018DifferentialFaultAttacks","year":2018,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"fails-argued","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"N","T5":"N","T6":"N","T7":"Y","T8":"N","T9":"Y","T10":"Y","T11":"N","T12":"N","T13":"N","T14":"N","T15":"N","S":"bypassed-ours","M":"bypassed-ours","V":"holds-argued","D":"holds-argued","H":"holds-argued","hw":{"injection":"Clock glitch","cw":"n.s. (CW308)","proc":"Cortex-M4F","device":"STM32F405","impl":"pq-crystals reference","notes":{}},"lines":["14","16"],"fault":"Directly faults the hash function that computes the challenge c, while the same message is signed twice"},{"id":6,"cls":"F2","key":"bruinderink2018DifferentialFaultAttacks","year":2018,"notes":[],"eprint":false,"alg":"S","eval":"T","det":"works-argued","hed":"fails-argued","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"N","T2":"Y","T3":"N","T4":"N","T5":"N","T6":"Y","T7":"Y","T8":"N","T9":"N","T10":"Y","T11":"N","T12":"N","T13":"N","T14":"N","T15":"N","S":"bypassed-ours","M":"bypassed-ours","V":"holds-argued","D":"bypassed-argued","H":"holds-argued","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"–","notes":{}},"lines":["08"],"fault":"Proposed: Rowhammer fault on A or its seed ρ in storage"},{"id":7,"cls":"F2","key":"ravi2022FiddlingTwiddleConstants","year":2022,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"fails-argued","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"Y","T6":"N","T7":"Y","T8":"N","T9":"Y","T10":"Y","T11":"Y","T12":"Y","T13":"N","T14":"N","T15":"N","S":"bypassed-argued","M":"bypassed-ours","V":"holds-argued","D":"holds-ours","H":"holds-argued","hw":{"injection":"EMFI","cw":"–","proc":"Cortex-M4","device":"STM32F407VG","impl":"pqm4","notes":{}},"lines":["18"],"fault":"Redirects the twiddle pointer so that NTT(c) uses zero twiddle factors"},{"id":8,"cls":"F2","key":"krahmer2024CorrectionFaultAttacks","year":2024,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-ours","hed":"works-demo","rec":"R2/R5","K1":"N","K2":"Y","K3":"N","K4":"Y","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"N","T9":"N","T10":"N","T11":"N","T12":"Y","T13":"Y","T14":"Y","T15":"N","S":"bypassed-argued","M":"bypassed-argued","V":"holds-argued","D":"holds-argued","H":"bypassed-demo","hw":{"injection":"Clock glitch","cw":"Lite (UFO)","proc":"Cortex-M4","device":"STM32F405","impl":"pqm4, <span class=\"m\"><b>A<\/b><\/span> initialised to zero","notes":{}},"lines":["08"],"fault":"Skips the store of one coefficient while expanding A (ExpandA)"},{"id":9,"cls":"F2","key":"wang2025MindFaultyKeccak","year":2025,"notes":[],"eprint":false,"alg":"S","eval":"S","det":"works-argued","hed":"fails-ours","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"Y","T8":"N","T9":"Y","T10":"Y","T11":"N","T12":"Y","T13":"Y","T14":"N","T15":"N","S":"bypassed-argued","M":"bypassed-argued","V":"holds-ours","D":"holds-ours","H":"holds-ours","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"PQClean <code>clean<\/code>","notes":{}},"lines":["17"],"fault":"Faults the hash in SampleInBall so that c is fixed"},{"id":10,"cls":"F2","key":"amer2025PQHammerEndtoEndKey","year":2025,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"fails-argued","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"N","T2":"Y","T3":"N","T4":"N","T5":"Y","T6":"Y","T7":"Y","T8":"N","T9":"N","T10":"Y","T11":"N","T12":"N","T13":"N","T14":"N","T15":"N","S":"bypassed-ours","M":"bypassed-ours","V":"holds-ours","D":"bypassed-ours","H":"holds-argued","hw":{"injection":"Rowhammer","cw":"–","proc":"Intel i7-8700K","device":"DDR4 DRAM","impl":"pq-crystals reference","notes":{}},"lines":["08"],"fault":"Rowhammer flip of the stored seed ρ, which changes A in every signature"},{"id":11,"cls":"F2","key":"shin2026PublicCoefficientMatters","year":2026,"notes":[],"eprint":true,"alg":"S","eval":"E","det":"works-demo","hed":"fails-ours","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"Y","T8":"Y","T9":"N","T10":"Y","T11":"N","T12":"Y","T13":"Y","T14":"N","T15":"N","S":"bypassed-ours","M":"bypassed-argued","V":"holds-ours","D":"holds-ours","H":"holds-ours","hw":{"injection":"Clock glitch","cw":"Lite (CW308T)","proc":"Cortex-M4","device":"STM32F415","impl":"pq-crystals reference, pqm4","notes":{}},"lines":["17"],"fault":"Aborts the SampleInBall loop; the remaining coefficients of c stay zero"},{"id":12,"cls":"F2","key":"ravi2022FiddlingTwiddleConstants","year":2022,"notes":[],"eprint":false,"alg":"V","eval":"E","det":"-","hed":"-","rec":"-","K1":"-","K2":"-","K3":"-","K4":"-","K5":"-","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"Y","T6":"N","T7":"-","T8":"-","T9":"-","T10":"N","T11":"Y","T12":"Y","T13":"N","T14":"N","T15":"N","S":"bypassed-argued","M":"bypassed-ours","V":"-","D":"-","H":"-","hw":{"injection":"EMFI","cw":"–","proc":"Cortex-M4","device":"STM32F407VG","impl":"pqm4","notes":{}},"lines":["28"],"fault":"Zeroes the twiddle factors of NTT(c) in verification"},{"id":13,"cls":"F2","key":"bauer2023ForgingDilithiumFalcon","year":2023,"notes":[],"eprint":false,"alg":"V","eval":"S","det":"-","hed":"-","rec":"-","K1":"-","K2":"-","K3":"-","K4":"-","K5":"-","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"-","T8":"-","T9":"-","T10":"N","T11":"Y","T12":"N","T13":"Y","T14":"N","T15":"N","S":"bypassed-ours","M":"bypassed-ours","V":"-","D":"-","H":"-","hw":{"injection":"Simulated (GDB)","cw":"–","proc":"Cortex-M4","device":"STM32F407VGT6","impl":"pqm4","notes":{}},"lines":["28"],"fault":"Skips the subtraction in Az − c·t1·2^d"},{"id":14,"cls":"F2","key":"bauer2023ForgingDilithiumFalcon","year":2023,"notes":[],"eprint":false,"alg":"V","eval":"T","det":"-","hed":"-","rec":"-","K1":"-","K2":"-","K3":"-","K4":"-","K5":"-","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"-","T8":"-","T9":"-","T10":"N","T11":"Y","T12":"Y","T13":"Y","T14":"N","T15":"N","S":"bypassed-ours","M":"bypassed-ours","V":"-","D":"-","H":"-","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"–","notes":{}},"lines":["27"],"fault":"Skips the call that samples c, assuming its memory is zero"},{"id":15,"cls":"F2","key":"calleviera2023FaultAttacksSensitivity","year":2023,"notes":[],"eprint":false,"alg":"V","eval":"S","det":"-","hed":"-","rec":"-","K1":"-","K2":"-","K3":"-","K4":"-","K5":"-","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"-","T8":"-","T9":"-","T10":"N","T11":"Y","T12":"N","T13":"Y","T14":"N","T15":"N","S":"bypassed-ours","M":"bypassed-ours","V":"-","D":"-","H":"-","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"PQClean <code>clean<\/code>","notes":{}},"lines":["28"],"fault":"Skips the shift by 2^d or the subtraction in Az − c·t1·2^d"},{"id":16,"cls":"F2","key":"calleviera2023FaultAttacksSensitivity","year":2023,"notes":[],"eprint":false,"alg":"V","eval":"S","det":"-","hed":"-","rec":"-","K1":"-","K2":"-","K3":"-","K4":"-","K5":"-","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"-","T8":"-","T9":"-","T10":"N","T11":"Y","T12":"Y","T13":"Y","T14":"N","T15":"N","S":"bypassed-ours","M":"bypassed-ours","V":"-","D":"-","H":"-","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"PQClean <code>clean<\/code>","notes":{}},"lines":["27"],"fault":"Aborts SampleInBall in verification"},{"id":17,"cls":"F2","key":"wang2025MindFaultyKeccak","year":2025,"notes":[],"eprint":false,"alg":"V","eval":"E","det":"-","hed":"-","rec":"-","K1":"-","K2":"-","K3":"-","K4":"-","K5":"-","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"-","T8":"-","T9":"-","T10":"N","T11":"Y","T12":"Y","T13":"Y","T14":"N","T15":"N","S":"bypassed-argued","M":"bypassed-argued","V":"-","D":"-","H":"-","hw":{"injection":"EMFI","cw":"n.s.","proc":"Cortex-M4","device":"STM32F407ZGT6","impl":"PQClean <code>clean<\/code>","notes":{"device":["e"]}},"lines":["27","30"],"fault":"Fixes the output of the hash in SampleInBall or of the hash that recomputes c̃′"},{"id":18,"cls":"F3","key":"yuan2025DiverseFaultAttacks","year":2025,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"works-demo","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"N","S":"bypassed-argued","M":"holds-ours","V":"holds-ours","D":"holds-ours","H":"bypassed-demo","hw":{"injection":"Clock glitch","cw":"Lite","proc":"Cortex-M4","device":"STM32F405","impl":"pq-crystals reference","notes":{}},"lines":["18"],"fault":"Skips the addition z = y + cs1 for the entire vector"},{"id":19,"cls":"F4","key":"yuan2025DiverseFaultAttacks","year":2025,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"works-demo","rec":"R2/R3","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"N","S":"bypassed-argued","M":"holds-ours","V":"holds-ours","D":"holds-ours","H":"bypassed-demo","hw":{"injection":"Clock glitch","cw":"Lite","proc":"Cortex-M4","device":"STM32F405","impl":"pq-crystals reference","notes":{}},"lines":["18"],"fault":"Skips or aborts the addition z = y + cs1 for one or the remaining polynomials"},{"id":20,"cls":"F5","key":"elghamrawy2023MLWERLWEDifferential","year":2023,"notes":[],"eprint":false,"alg":"S","eval":"S","det":"works-argued","hed":"works-argued","rec":"R5","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"Y","S":"bypassed-ours","M":"bypassed-ours","V":"bypassed-argued","D":"holds-argued","H":"bypassed-argued","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"pq-crystals reference (Cortex-M4 build)","notes":{}},"lines":["13"],"fault":"Skips the increment of the per-polynomial nonce in ExpandMask, so two polynomials of y are equal"},{"id":21,"cls":"F5","key":"elghamrawy2023MLWERLWEDifferential","year":2023,"notes":[],"eprint":false,"alg":"S","eval":"S","det":"works-argued","hed":"fails-argued","rec":"R5","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"N","T9":"Y","T10":"Y","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"Y","S":"bypassed-ours","M":"bypassed-ours","V":"bypassed-argued","D":"holds-argued","H":"holds-argued","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"pq-crystals reference (Cortex-M4 build)","notes":{}},"lines":["13"],"fault":"Skips the increment of the per-polynomial nonce in ExpandMask, so two polynomials of y are equal"},{"id":22,"cls":"F5","key":"du2025BreakingShieldNovel","year":2025,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"works-demo","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"Y","T8":"N","T9":"N","T10":"N","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"Y","S":"bypassed-ours","M":"bypassed-demo","V":"bypassed-ours","D":"holds-ours","H":"bypassed-demo","hw":{"injection":"Clock glitch","cw":"Lite","proc":"Cortex-M4","device":"STM32F405","impl":"PQClean, pqm4, masked Dilithium of Coron et al.","notes":{}},"lines":["10"],"fault":"Aborts the loop that copies K‖rnd‖μ into the hash deriving ρ″, fixing ρ″"},{"id":23,"cls":"F5","key":"valsaraj2025WhenRandomnessIsnt","year":2025,"notes":[],"eprint":true,"alg":"S","eval":"E","det":"works-ours","hed":"works-demo","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"Y","T6":"N","T7":"Y","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"N","T13":"N","T14":"N","T15":"Y","S":"bypassed-ours","M":"bypassed-ours","V":"bypassed-argued","D":"holds-ours","H":"bypassed-demo","hw":{"injection":"Laser","cw":"–","proc":"Cortex-M7","device":"STM32H753ZIT","impl":"pqm4","notes":{"impl":["d"]}},"lines":["13"],"fault":"Redirects a pointer (to the output of the ρ″ hash or to ρ″ in ExpandMask), fixing ρ″ to an unknown constant"},{"id":24,"cls":"F6","key":"jendral2024SingleTraceFaultInjection","year":2024,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-argued","hed":"works-demo","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"N","T9":"N","T10":"N","T11":"N","T12":"Y","T13":"Y","T14":"N","T15":"Y","S":"bypassed-ours","M":"bypassed-ours","V":"bypassed-argued","D":"holds-ours","H":"bypassed-demo","hw":{"injection":"Voltage glitch","cw":"Husky (CW308T)","proc":"Cortex-M4","device":"STM32F415RGT6","impl":"Cortex-M4 code of Abdulrahman et al., hedged","notes":{}},"lines":["10"],"fault":"Skips the absorption call in the hash deriving ρ″; the zero Keccak state makes ρ″ known"},{"id":25,"cls":"F6","key":"valsaraj2025WhenRandomnessIsnt","year":2025,"notes":[],"eprint":true,"alg":"S","cellNotes":{"eval":"j"},"eval":"E","det":"works-ours","hed":"works-demo","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"Y","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"Y","T13":"N","T14":"N","T15":"Y","S":"bypassed-ours","M":"bypassed-ours","V":"bypassed-argued","D":"holds-ours","H":"bypassed-demo","hw":{"injection":"Laser","cw":"–","proc":"Cortex-M7","device":"STM32H753ZIT","impl":"pqm4","notes":{"impl":["d"]}},"lines":["10","13"],"fault":"Redirects a pointer (to the output of the ρ″ hash or to ρ″ in ExpandMask), making ρ″ known"},{"id":26,"cls":"F6","key":"wang2025MindFaultyKeccak","year":2025,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-ours","hed":"works-demo","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"N","T9":"N","T10":"N","T11":"N","T12":"Y","T13":"Y","T14":"N","T15":"Y","S":"bypassed-argued","M":"bypassed-argued","V":"bypassed-argued","D":"holds-ours","H":"bypassed-demo","hw":{"injection":"EMFI","cw":"n.s.","proc":"Cortex-M4","device":"STM32F407ZGT6","impl":"PQClean <code>clean<\/code>","notes":{"device":["e"]}},"lines":["10"],"fault":"Aborts the absorption loop in the hash deriving ρ″, making ρ″ known"},{"id":27,"cls":"F7","key":"ravi2019ExploitingDeterminismLatticebased","year":2019,"notes":["b"],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"fails-argued","rec":"R3","K1":"N","K2":"N","K3":"Y","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"N","T9":"Y","T10":"Y","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"N","S":"bypassed-ours","M":"holds-ours","V":"holds-argued","D":"holds-argued","H":"holds-argued","hw":{"injection":"EMFI","cw":"–","proc":"Cortex-M4","device":"STM32F407","impl":"pqm4","notes":{}},"lines":["18"],"fault":"Skips the addition z = y + cs1 for single coefficients"},{"id":28,"cls":"F7","key":"ulitzsch2023LoopAbortsStrike","year":2023,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"works-argued","rec":"R4","K1":"N","K2":"N","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"Y","T13":"Y","T14":"Y","T15":"Y","S":"bypassed-demo","M":"bypassed-argued","V":"bypassed-ours","D":"holds-argued","H":"bypassed-argued","hw":{"injection":"Clock glitch","cw":"n.s. (UFO)","proc":"Cortex-M4","device":"STM32F4","impl":"pq-crystals reference, shuffled","notes":{}},"lines":["13"],"fault":"Aborts the sampling loop of y early; the remaining coefficients stay zero"},{"id":29,"cls":"F7","key":"ravi2022FiddlingTwiddleConstants","year":2022,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-argued","hed":"works-demo","rec":"R2","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"Y","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"Y","T13":"N","T14":"N","T15":"Y","S":"bypassed-argued","M":"holds-ours","V":"bypassed-demo","D":"holds-ours","H":"bypassed-demo","hw":{"injection":"EMFI","cw":"–","proc":"Cortex-M4","device":"STM32F407VG","impl":"pqm4, <span class=\"m\"><b>z<\/b><\/span> computed in the NTT domain","notes":{}},"lines":["14"],"fault":"Redirects the twiddle pointer so that NTT(y) uses zero twiddle factors"},{"id":30,"cls":"F7","key":"yuan2025DiverseFaultAttacks","year":2025,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"works-demo","rec":"R3/R4","K1":"N","K2":"N","K3":"N","K4":"N","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"N","S":"bypassed-argued","M":"holds-ours","V":"holds-ours","D":"holds-ours","H":"bypassed-demo","hw":{"injection":"Clock glitch","cw":"Lite","proc":"Cortex-M4","device":"STM32F405","impl":"pq-crystals reference","notes":{}},"lines":["18"],"fault":"Aborts the addition z = y + cs1 for the remaining coefficients of a polynomial"},{"id":31,"cls":"F7","key":"yuan2025DiverseFaultAttacks","year":2025,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"works-demo","rec":"R3","K1":"N","K2":"N","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"Y","T13":"Y","T14":"N","T15":"Y","S":"bypassed-argued","M":"holds-ours","V":"bypassed-ours","D":"holds-ours","H":"bypassed-demo","hw":{"injection":"Clock glitch","cw":"Lite","proc":"Cortex-M4","device":"STM32F405","impl":"pq-crystals reference, NTT variant","notes":{"impl":["c"]}},"lines":["14"],"fault":"Skips twiddle assignments in NTT(y), assuming the skipped value reads zero"},{"id":32,"cls":"F7","key":"azevedo-oliveira2025AttackMLDSAUsing","year":2025,"notes":[],"eprint":false,"alg":"S","eval":"S","det":"works-ours","hed":"works-ours","rec":"R5","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"N","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"Y","T13":"N","T14":"N","T15":"Y","S":"bypassed-argued","cellNotes":{"M":"c"},"M":"bypassed-ours","V":"bypassed-ours","D":"holds-ours","H":"bypassed-ours","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"SageMath model","notes":{}},"lines":["13"],"fault":"Aborts the sampling loop of y (simulated)"},{"id":33,"cls":"F8","key":"bruinderink2018DifferentialFaultAttacks","year":2018,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"fails-argued","rec":"R5","K1":"N","K2":"Y","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"N","T5":"N","T6":"N","T7":"Y","T8":"N","T9":"Y","T10":"Y","T11":"N","T12":"N","T13":"N","T14":"N","T15":"Y","S":"bypassed-ours","M":"bypassed-ours","V":"bypassed-argued","D":"holds-argued","H":"holds-argued","hw":{"injection":"Clock glitch","cw":"n.s. (CW308)","proc":"Cortex-M4F","device":"STM32F405","impl":"pq-crystals reference","notes":{}},"lines":["13"],"fault":"Faults one coefficient of y; the other coefficients are reused under deterministic signing"},{"id":34,"cls":"F8","key":"bronchain2024ExploitingSmallNormPolynomial","year":2024,"notes":["f","g"],"eprint":false,"alg":"S","eval":"S","det":"works-ours","hed":"works-ours","rec":"R6","K1":"N","K2":"N","K3":"N","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"N","T13":"N","T14":"N","T15":"Y","S":"bypassed-argued","M":"holds-ours","V":"bypassed-ours","D":"holds-ours","H":"bypassed-ours","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"n.s.","notes":{}},"lines":["13"],"fault":"Biases one coefficient of y (point not specified; assumed during sampling)"},{"id":35,"cls":"F9","key":"ravi2019ExploitingDeterminismLatticebased","year":2019,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"fails-argued","rec":"R3","K1":"N","K2":"N","K3":"Y","K4":"N","K5":"N","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"Y","T8":"N","T9":"Y","T10":"Y","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"N","S":"bypassed-ours","M":"holds-ours","V":"holds-argued","D":"holds-argued","H":"holds-argued","hw":{"injection":"EMFI","cw":"–","proc":"Cortex-M4","device":"STM32F407","impl":"pqm4","notes":{}},"lines":["18"],"fault":"Skips adding cs1 to one coefficient of z, disclosing that coefficient of y"},{"id":36,"cls":"F9","key":"krahmer2024CorrectionFaultAttacks","year":2024,"notes":[],"eprint":false,"alg":"S","eval":"S","det":"works-argued","hed":"works-argued","rec":"R3","K1":"N","K2":"N","K3":"N","K4":"Y","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"N","S":"bypassed-argued","M":"holds-argued","V":"holds-argued","D":"holds-argued","H":"bypassed-argued","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"pq-crystals reference","notes":{}},"lines":["18"],"fault":"Skips one coefficient of the addition, leaving z equal to y there; corrected against the public key"},{"id":37,"cls":"F9","key":"krahmer2024CorrectionFaultAttacks","year":2024,"notes":[],"eprint":false,"alg":"S","eval":"S","det":"works-argued","hed":"works-argued","rec":"R3","K1":"N","K2":"N","K3":"Y","K4":"N","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"Y","S":"holds-argued","M":"holds-argued","V":"bypassed-argued","D":"bypassed-argued","H":"bypassed-argued","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"pq-crystals reference","notes":{}},"lines":["18"],"fault":"Skips one coefficient of the addition, leaving z equal to y there; corrected against the public key"},{"id":38,"cls":"F9","key":"du2025BreakingShieldNovel","year":2025,"notes":[],"eprint":false,"alg":"S","eval":"E","det":"works-demo","hed":"works-demo","rec":"R3","K1":"N","K2":"N","K3":"Y","K4":"N","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"Y","T13":"Y","T14":"N","T15":"Y","S":"bypassed-ours","M":"holds-ours","V":"bypassed-ours","D":"holds-ours","H":"bypassed-demo","hw":{"injection":"Clock glitch","cw":"Lite","proc":"Cortex-M4","device":"STM32F405","impl":"pqm4","notes":{}},"lines":["13"],"fault":"Skips a load in the hash so that one byte of a y coefficient becomes zero"},{"id":39,"cls":"F9","key":"ouyang2026ImprovingSkippingFault","year":2026,"notes":[],"eprint":true,"alg":"S","eval":"S","det":"works-ours","hed":"works-argued","rec":"R4","K1":"N","K2":"N","K3":"N","K4":"Y","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"Y","T9":"N","T10":"N","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"N","S":"bypassed-argued","M":"holds-ours","V":"holds-argued","D":"holds-argued","H":"bypassed-argued","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"pq-crystals reference","notes":{}},"lines":["18"],"fault":"Leaves one coefficient of z equal to y (skipped addition); key recovered by MILP"},{"id":40,"cls":"F10","key":"azevedo-oliveira2025FindingPolytopePractical","year":2025,"notes":[],"eprint":false,"alg":"S","eval":"S","det":"works-argued","hed":"works-argued","rec":"R4","K1":"N","K2":"N","K3":"N","K4":"N","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"N","T9":"N","T10":"N","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"N","S":"bypassed-ours","M":"bypassed-ours","V":"holds-ours","D":"holds-ours","H":"bypassed-argued","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"pq-crystals reference, FIPS 204 variant","notes":{}},"lines":["20"],"fault":"Skips the bound check on z (line 20)"},{"id":41,"cls":"F11","key":"azevedo-oliveira2025FindingPolytopePractical","year":2025,"notes":["h"],"eprint":false,"alg":"S","eval":"S","det":"works-argued","hed":"works-argued","rec":"R4","K1":"Y","K2":"N","K3":"N","K4":"N","K5":"Y","T1":"Y","T2":"N","T3":"Y","T4":"Y","T5":"N","T6":"N","T7":"N","T8":"N","T9":"N","T10":"N","T11":"N","T12":"N","T13":"Y","T14":"N","T15":"Y","S":"bypassed-ours","M":"bypassed-ours","V":"bypassed-argued","D":"holds-ours","H":"bypassed-argued","hw":{"injection":"–","cw":"–","proc":"–","device":"–","impl":"pq-crystals reference, FIPS 204 variant","notes":{}},"lines":["20b"],"fault":"Skips the bound check on r0 (line 20)"}],"appNotes":{"a":"Only a single skipped store is validated on the device; the entire attack needs <span class=\"m\">k+ℓ<\/span> faults.","b":"Results reported only for BIKE.","c":"Computes <span class=\"m\"><b>z<\/b><\/span> in the NTT domain; compiled with -O0.","d":"The same seed-pointer pattern is found in liboqs, PQClean and wolfSSL.","e":"The fault model is characterised on five Cortex-M devices (M0+, M3, two M4, M33); the attacks execute on the STM32F407ZGT6."},"patents":[{"title":"Fault Detection of Differential Fault Attack in Lattice Based Cryptography","assignee":"NXP B.V.","number":"12388616B2","year":"2025"},{"title":"Fault Detection in Post-Quantum Cryptography","assignee":"NXP B.V.","number":"12413399B2","year":"2025"},{"title":"Method for Protecting against Fault Attacks an Execution of a Generation of a CRYSTALS-Dilithium Signature","assignee":"Thales DIS France SAS","number":"2025261784A1","year":"2025"},{"title":"Method for Protecting against Fault Attacks an Execution of a Generation of a CRYSTALS-Dilithium Signature","assignee":"Thales DIS France SAS","number":"4668665A1","year":"2025"},{"title":"Method for Securing against Fault Attacks an Execution of a Verification of a CRYSTALS-Dilithium Post-Quantum Signature","assignee":"Thales DIS France SAS","number":"2025099032A1","year":"2025"},{"title":"Method for Signature Verification of a Dilithium Signature","assignee":"Siemens AG and Siemens Corp.","number":"2025051608A1","year":"2025"},{"title":"Fault Countermeasures for Digital Signatures with Aborts","assignee":"NXP B.V.","number":"12177363B2","year":"2024"}],"notes":{"a":"Recovers only part of <span class=\"m\"><b>s<\/b><sub>1<\/sub><\/span>.","b":"Shown for deterministic signing. According to [<a class=\"cite\" href=\"#paper-krahmer2024CorrectionFaultAttacks\">krahmer2024CorrectionFaultAttacks<\/a>], the attack also applies to hedged signing, provided that only executions releasing the first iteration are considered.","c":"Assumes that all shares of a coefficient are sampled together, as in [<a class=\"cite\" href=\"#paper-migliore2019MaskingDilithiumEfficient\">migliore2019MaskingDilithiumEfficient<\/a>], which therefore remains vulnerable [<a class=\"cite\" href=\"#paper-ulitzsch2023LoopAbortsStrike\">ulitzsch2023LoopAbortsStrike<\/a>]. Separate loops per share would require <span class=\"m\">t<\/span> faults.","d":"Experimental results for the instruction flip are reported only for BIKE [<a class=\"cite\" href=\"#paper-amer2025PQHammerEndtoEndKey\">amer2025PQHammerEndtoEndKey<\/a>].","e":"Requires <span class=\"m\">k+ℓ<\/span> faults within one key generation.","f":"The point at which <span class=\"m\"><b>y<\/b><\/span> is biased is not specified; we assume that it occurs during sampling, in which case the signature remains valid (T15) and V is bypassed.","g":"The authors simulate the fault attack only for the case when the fault position is known; for the unknown fault position case, e.g., with shuffling, they demonstrate key recovery using a side-channel attack and state that similar results hold for fault attacks.","h":"Faulty signatures pass Verify only if the hint is computed using the reference implementation, not the specification.","i":"Under the assumed arithmetic masking, the attack only works if the stored shares stay the same across signatures.","j":"The pointer redirect is demonstrated on the seed of ML-KEM and only described for ML-DSA."},"threat":[{"id":"T1","group":"Access","text":"Physical access to the device"},{"id":"T2","group":"Access","text":"Unprivileged code co-located with the victim"},{"id":"T3","group":"Access","text":"Trigger or side-channel to time the fault"},{"id":"T4","group":"Fault Control","text":"Fault hits a single clock cycle, loop or instruction"},{"id":"T5","group":"Fault Control","text":"Fault hits a single memory cell, register or bus line"},{"id":"T6","group":"Fault Control","text":"Fault affects persistent storage"},{"id":"T7","group":"Execution Control","text":"Compared executions share the same loop counter"},{"id":"T8","group":"Execution Control","text":"Fault occurs within the <i>first<\/i> rejection iteration"},{"id":"T9","group":"Execution Control","text":"Fault occurs within the <i>last<\/i> rejection iteration"},{"id":"T10","group":"Execution Control","text":"Same message is signed multiple times"},{"id":"T11","group":"Execution Control","text":"Control over the known message to be signed"},{"id":"T12","group":"System","text":"Skipped instruction or pointer redirect reads zero"},{"id":"T13","group":"System","text":"Target compiles to a single skippable instruction"},{"id":"T14","group":"Fault Effect","text":"Faulted value is known"},{"id":"T15","group":"Fault Effect","text":"Faulty signature remains cryptographically valid"}],"recovery":[{"id":"K1","group":"Input","text":"<span class=\"m\"><b>t<\/b><sub>0<\/sub><\/span> is known (requires 200,000–500,000 signatures [<a class=\"cite\" href=\"#paper-azevedo-oliveira2025UncompressingDilithiumsPublic\">azevedo-oliveira2025UncompressingDilithiumsPublic<\/a>])"},{"id":"K2","group":"Input","text":"<span class=\"m\">c<\/span> or <span class=\"m\">c-c'<\/span> is invertible in <span class=\"m\">R<sub>q<\/sub><\/span> (prob. <span class=\"m\">approx 1-2<sup>-15<\/sup><\/span> [<a class=\"cite\" href=\"#paper-bruinderink2018DifferentialFaultAttacks\">bruinderink2018DifferentialFaultAttacks<\/a>])"},{"id":"K3","group":"Solver","text":"Fault positions are known, not derived from the output"},{"id":"K4","group":"Solver","text":"<span class=\"m\">pk<\/span> acts as a correction oracle"},{"id":"K5","group":"Solver","text":"A value is recovered by exhaustive search"},{"id":"R1","group":"Family","text":"<b>Re-derivation.<\/b> The fault reveals a seed from which the key is recomputed directly."},{"id":"R2","group":"\\addlinespace[2pt]","text":"<b>Closed form.<\/b> The response <span class=\"m\"><b>z<\/b> = <b>y<\/b> + c<b>s<\/b><sub>1<\/sub><\/span> is solved as <span class=\"m\"><b>s<\/b><sub>1<\/sub> = c<sup>-1<\/sup>(<b>z<\/b>-<b>y<\/b>)<\/span> if <span class=\"m\"><b>y<\/b><\/span> is known, or as <span class=\"m\"><b>s<\/b><sub>1<\/sub> = (c-c')<sup>-1<\/sup>(<b>z<\/b>-<b>z<\/b>')<\/span> if two signatures share <span class=\"m\"><b>y<\/b><\/span>, which requires <span class=\"m\">c<\/span> or <span class=\"m\">c-c'<\/span> to be invertible (K2)."},{"id":"R3","group":"\\addlinespace[2pt]","text":"<b>Linear systems.<\/b> The faulty signatures give linear equations in the key coefficients, which require the fault positions, either known (K3) or recovered from the faulty signature."},{"id":"R4","group":"\\addlinespace[2pt]","text":"<b>Bounded optimization.<\/b> The faulty signatures give inequalities or equations with unknown positions, which are solved by an integer or linear program using <span class=\"m\">‖<b>s<\/b><sub>1<\/sub>‖<sub>∞<\/sub> ≤ η<\/span>."},{"id":"R5","group":"\\addlinespace[2pt]","text":"<b>Lattice reduction.<\/b> The faulty signatures reveal partial information on the key, which is used to construct a lattice problem, whose shortest or closest vector, found by lattice reduction, reveals the key."},{"id":"R6","group":"\\addlinespace[2pt]","text":"<b>Belief propagation.<\/b> Weak statistical biases from many faulty signatures are combined to recover the key."}],"faultClasses":[{"id":"F1","label":"<span class=\"m\"><b>s<\/b><sub>1<\/sub><\/span>","text":"<span class=\"m\"><b>s<\/b><sub>1<\/sub><\/span> is faulted during generation or storage"},{"id":"F2","label":"<span class=\"m\">c'≠ c<\/span>","text":"<span class=\"m\">c<\/span> is faulted during signing or verification"},{"id":"F3","label":"<span class=\"m\"><b>y<\/b>=0<\/span>","text":"<span class=\"m\"><b>y<\/b><\/span> is omitted"},{"id":"F4","label":"<span class=\"m\"><b>y<\/b>[i]=0<\/span>","text":"One or more polynomials of <span class=\"m\"><b>y<\/b><\/span> are omitted"},{"id":"F5","label":"<span class=\"m\"><b>y<\/b><sub>1<\/sub>=<b>y<\/b><sub>2<\/sub><\/span>, <span class=\"m\"><b>y<\/b>[i]=<b>y<\/b>[j]<\/span>","text":"<span class=\"m\"><b>y<\/b><\/span> is repeated across signatures or polynomials, but remains unknown"},{"id":"F6","label":"<span class=\"m\"><b>y<\/b><\/span> known","text":"<span class=\"m\"><b>y<\/b><\/span> is disclosed"},{"id":"F7","label":"<span class=\"m\"><b>y<\/b>[i][j]=0<\/span>","text":"One or more <span class=\"m\"><b>y<\/b><\/span> coefficients are zero"},{"id":"F8","label":"<span class=\"m\"><b>y<\/b>[i][j]<\/span> biased/unknown","text":"One or more <span class=\"m\"><b>y<\/b><\/span> coefficients are biased or unknown"},{"id":"F9","label":"<span class=\"m\"><b>y<\/b>[i][j]<\/span> biased/known","text":"One or more <span class=\"m\"><b>y<\/b><\/span> coefficients are disclosed"},{"id":"F10","label":"<span class=\"m\">‖<b>z<\/b>‖<sub>∞<\/sub>≥γ<sub>1<\/sub>-β<\/span>","text":"<span class=\"m\"><b>z<\/b><\/span> bound check is bypassed"},{"id":"F11","label":"<span class=\"m\">‖<b>r<\/b><sub>0<\/sub>‖<sub>∞<\/sub>≥γ<sub>2<\/sub>-β<\/span>","text":"<span class=\"m\"><b>r<\/b><sub>0<\/sub><\/span> bound check is bypassed"}],"papers":{"amer2025PQHammerEndtoEndKey":{"short":"Amer et al.","year":"2025","title":"PQ-Hammer: End-to-End Key Recovery Attacks on Post-Quantum Cryptography Using Rowhammer","venue":"IEEE S&P 2025","url":"https://doi.org/10.1109/SP61157.2025.00048"},"azevedo-oliveira2025AttackMLDSAUsing":{"short":"Azevedo Oliveira et al.","year":"2025","title":"An Attack on ML-DSA Using an Implicit Hint","venue":"SAC 2025","url":"https://doi.org/10.1007/978-3-032-10536-3_21"},"azevedo-oliveira2025FindingPolytopePractical":{"short":"Azevedo Oliveira et al.","year":"2025","title":"Finding a Polytope: A Practical Fault Attack Against Dilithium","venue":"PKC 2025","url":"https://doi.org/10.1007/978-3-031-91820-9_9"},"bauer2023ForgingDilithiumFalcon":{"short":"Bauer et al.","year":"2023","title":"Forging Dilithium and Falcon Signatures by Single Fault Injection","venue":"FDTC 2023","url":"https://doi.org/10.1109/FDTC60478.2023.00017"},"bronchain2024ExploitingSmallNormPolynomial":{"short":"Bronchain et al.","year":"2024","title":"Exploiting Small-Norm Polynomial Multiplication with Physical Attacks: Application to CRYSTALS-Dilithium","venue":"TCHES 2024","url":"https://doi.org/10.46586/TCHES.V2024.I2.359-383"},"bruinderink2018DifferentialFaultAttacks":{"short":"Bruinderink et al.","year":"2018","title":"Differential Fault Attacks on Deterministic Lattice Signatures","venue":"TCHES 2018","url":"https://doi.org/10.13154/TCHES.V2018.I3.21-43"},"calleviera2023FaultAttacksSensitivity":{"short":"Calle Viera et al.","year":"2023","title":"Fault Attacks Sensitivity of Public Parameters in the Dilithium Verification","venue":"CARDIS 2023","url":"https://doi.org/10.1007/978-3-031-54409-5_4"},"du2025BreakingShieldNovel":{"short":"Du et al.","year":"2025","title":"Breaking the Shield: Novel Fault Attacks on CRYSTALS-Dilithium","venue":"ACISP 2025","url":"https://doi.org/10.1007/978-981-96-9098-5_3"},"elghamrawy2023MLWERLWEDifferential":{"short":"ElGhamrawy et al.","year":"2023","title":"From MLWE to RLWE: A Differential Fault Attack on Randomized & Deterministic Dilithium","venue":"TCHES 2023","url":"https://doi.org/10.46586/TCHES.V2023.I4.262-286"},"islam2022SignatureCorrectionAttack":{"short":"Islam et al.","year":"2022","title":"Signature Correction Attack on Dilithium Signature Scheme","venue":"IEEE EuroS&P 2022","url":"https://doi.org/10.1109/EuroSP53844.2022.00046"},"jendral2024SingleTraceFaultInjection":{"short":"Jendral et al.","year":"2024","title":"A Single-Trace Fault Injection Attack on Hedged Module Lattice Digital Signature Algorithm (ML-DSA)","venue":"FDTC 2024","url":"https://doi.org/10.1109/FDTC64268.2024.00013"},"krahmer2024CorrectionFaultAttacks":{"short":"Krahmer et al.","year":"2024","title":"Correction Fault Attacks on Randomized CRYSTALS-Dilithium","venue":"TCHES 2024","url":"https://doi.org/10.46586/TCHES.V2024.I3.174-199"},"ouyang2026ImprovingSkippingFault":{"short":"Ouyang et al.","year":"2026","title":"Improving Skipping Fault Correction Attacks on Randomized Dilithium via MILP","venue":"IACR ePrint 2026/1448","url":"https://eprint.iacr.org/2026/1448"},"ravi2019ExploitingDeterminismLatticebased":{"short":"Ravi et al.","year":"2019","title":"Exploiting Determinism in Lattice-based Signatures: Practical Fault Attacks on pqm4 Implementations of NIST Candidates","venue":"AsiaCCS 2019","url":"https://doi.org/10.1145/3321705.3329821"},"ravi2019NumberNotUsed":{"short":"Ravi et al.","year":"2019","title":"Number ``Not Used'' Once - Practical Fault Attack on pqm4 Implementations of NIST Candidates","venue":"COSADE 2019","url":"https://doi.org/10.1007/978-3-030-16350-1_13"},"ravi2022FiddlingTwiddleConstants":{"short":"Ravi et al.","year":"2022","title":"Fiddling the Twiddle Constants - Fault Injection Analysis of the Number Theoretic Transform","venue":"IACR Cryptol. ePrint Arch.","url":"https://eprint.iacr.org/2022/824"},"shin2026PublicCoefficientMatters":{"short":"Shin et al.","year":"2026","title":"Public Coefficient Matters: A Practical Differential Fault Attack on ML-DSA and HAETAE","venue":"IACR ePrint 2026/1344","url":"https://eprint.iacr.org/2026/1344"},"ulitzsch2023LoopAbortsStrike":{"short":"Ulitzsch et al.","year":"2023","title":"Loop Aborts Strike Back: Defeating Fault Countermeasures in Lattice Signatures with ILP","venue":"TCHES 2023","url":"https://doi.org/10.46586/TCHES.V2023.I4.367-392"},"valsaraj2025WhenRandomnessIsnt":{"short":"Valsaraj et al.","year":"2025","title":"When Randomness Isn't Random: Practical Fault Attack on Post-Quantum Lattice Standards","venue":"IACR ePrint 2025/2009","url":"https://eprint.iacr.org/2025/2009"},"wang2025MindFaultyKeccak":{"short":"Wang et al.","year":"2025","title":"Mind the Faulty Keccak: A Practical Fault Injection Attack Scheme Applied to All Phases of ML-KEM and ML-DSA","venue":"IEEE TIFS","url":"https://doi.org/10.1109/TIFS.2025.3607242"},"yuan2025DiverseFaultAttacks":{"short":"Yuan et al.","year":"2025","title":"Diverse Fault Attacks on Dilithium and Variant Implementation: Skipping, Aborting and Zeroing","venue":"IEEE TrustCom 2025","url":"https://doi.org/10.1109/Trustcom66490.2025.00354"},"FIPS204":{"short":"NIST","year":"2024","title":"Module-Lattice-Based Digital Signature Standard","venue":"Federal Information Processing Standards Publication (FIPS) 204","url":"https://doi.org/10.6028/NIST.FIPS.204"},"azevedo-oliveira2025UncompressingDilithiumsPublic":{"short":"Azevedo Oliveira et al.","year":"2025","title":"Uncompressing Dilithium's Public Key","venue":"CRYPTO 2025","url":"https://doi.org/10.1007/978-3-032-01855-7_14"},"azevedooliveira2025ProtectingFaultAttacksEP":{"short":"Azevedo Oliveira et al.","year":"2025","title":"Method for Protecting against Fault Attacks an Execution of a Generation of a CRYSTALS-Dilithium Signature","venue":"","url":"https://patents.google.com/patent/EP4668665A1/en"},"azevedooliveira2025ProtectingFaultAttacksWO":{"short":"Azevedo Oliveira et al.","year":"2025","title":"Method for Protecting against Fault Attacks an Execution of a Generation of a CRYSTALS-Dilithium Signature","venue":"","url":"https://patents.google.com/patent/WO2025261784A1/en"},"azouaoui2025FaultDetectionPostquantum":{"short":"Azouaoui et al.","year":"2025","title":"Fault Detection in Post-Quantum Cryptography","venue":"","url":"https://patents.google.com/patent/US12413399B2/en"},"bauer2025SignatureVerificationDilithium":{"short":"Bauer et al.","year":"2025","title":"Method for Signature Verification of a Dilithium Signature","venue":"","url":"https://patents.google.com/patent/WO2025051608A1/en"},"berzati2025SecuringFaultAttacksVerification":{"short":"Berzati et al.","year":"2025","title":"Method for Securing against Fault Attacks an Execution of a Verification of a CRYSTALS-Dilithium Post-Quantum Signature","venue":"","url":"https://patents.google.com/patent/WO2025099032A1/en"},"bindel2016LatticeBasedSignatureSchemes":{"short":"Bindel et al.","year":"2016","title":"Lattice-Based Signature Schemes and Their Sensitivity to Fault Attacks","venue":"FDTC 2016","url":"https://doi.org/10.1109/FDTC.2016.11"},"espitau2018LoopAbortFaultsLatticeBased":{"short":"Espitau et al.","year":"2018","title":"Loop-Abort Faults on Lattice-Based Signature Schemes and Key Exchange Protocols","venue":"IEEE Trans. Computers","url":"https://doi.org/10.1109/TC.2018.2833119"},"heinz2023CombinedFaultDPA":{"short":"Heinz et al.","year":"2023","title":"Combined Fault and DPA Protection for Lattice-Based Cryptography","venue":"IEEE Trans. Computers","url":"https://doi.org/10.1109/TC.2022.3197073"},"migliore2019MaskingDilithiumEfficient":{"short":"Migliore et al.","year":"2019","title":"Masking Dilithium - Efficient Implementation and Side-Channel Evaluation","venue":"Applied Cryptography and Network Security - 17th International Conference, ACNS 2019, Bogota, Colombia, June 5-7, 2019, Proceedings","url":"https://doi.org/10.1007/978-3-030-21568-2_17"},"renes2024FaultCountermeasuresDigital":{"short":"Renes et al.","year":"2024","title":"Fault Countermeasures for Digital Signatures with Aborts","venue":"","url":"https://patents.google.com/patent/US12177363B2/en"},"schoenauer2025FaultDetectionDifferential":{"short":"Schoenauer et al.","year":"2025","title":"Fault Detection of Differential Fault Attack in Lattice Based Cryptography","venue":"","url":"https://patents.google.com/patent/US12388616B2/en"}}}</script>
+<script>
+(function () {
+"use strict";
+const D = JSON.parse(document.getElementById("d").textContent);
+const P = D.papers, X = D.extras;
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const strip = s => String(s ?? "").replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+
+/* ---------- vocabulary ---------- */
+const FC = { F1: "Secret key s1 corrupted", F2: "Challenge c corrupted", F3: "Mask y omitted", F4: "Polynomial of y zeroed",
+  F5: "Mask y repeated", F6: "Mask y known", F7: "Coefficients of y zeroed", F8: "Coefficient of y biased",
+  F9: "Coefficient of y disclosed", F10: "Bound check on z skipped", F11: "Bound check on r0 skipped" };
+const REC = { R1: "Re-derivation", R2: "Closed form", R3: "Linear system", R4: "Bounded optimization", R5: "Lattice reduction", R6: "Belief propagation" };
+const ALG = { K: "Key generation", S: "Signing", V: "Verification" };
+const EV = { E: "Hardware", S: "Simulation", T: "Theoretical" };
+const SEC = k => D.sections[k] ? `§${D.sections[k].num} ${D.sections[k].title}` : "";
+const DEF = Object.fromEntries([...D.threat, ...D.recovery].map(x => [x.id, strip(x.text)]));
+const CONDS = [
+  ["Access", "sec:access", [["T1", "Physical access"], ["T2", "Co-located code"], ["T3", "Timing trigger"]]],
+  ["Fault control", "title:Control", [["T4", "Precise timing"], ["T5", "Precise location"], ["T6", "Persistent fault"]]],
+  ["Execution", "title:Control", [["T7", "Same loop counter"], ["T8", "First iteration"], ["T9", "Last iteration"], ["T10", "Message signed twice"], ["T11", "Known message"]]],
+  ["System", "sec:system_fault_effect", [["T12", "Reads zero"], ["T13", "Single instruction"]]],
+  ["Fault effect", "sec:system_fault_effect", [["T14", "Known faulty value"], ["T15", "Valid signature"]]],
+  ["Key recovery", "sec:key_recovery", [["K1", "Knows t0"], ["K2", "Invertible Δc"], ["K3", "Known fault positions"], ["K4", "Public key as oracle"], ["K5", "Exhaustive search"]]]
+];
+const COND = {};
+CONDS.forEach(([g, sec, list]) => list.forEach(([id, name]) => COND[id] = { id, name, group: g, sec, def: DEF[id] || "" }));
+const CMS = [["S", "Shuffling", "sec:S", "Random order of operations"], ["M", "Masking", "sec:M", "Secrets split into random shares"], ["V", "Verify", "sec:V", "Signature is verified before release"],
+  ["D", "Double", "sec:D", "Signing (or its last iteration) is repeated and compared"], ["H", "Hedging", "sec:H", "Fresh randomness in every signature"]];
+const CMN = { S: "Shuffling", M: "Masking", V: "Verify after signing", D: "Double computation", H: "Hedged signing" };
+const VERD = v => {
+  const [o, e] = (v || "").split("-"); if (!e) return null;
+  return { bad: o === "works" || o === "bypassed", ev: e === "demo" ? "demo" : e === "argued" ? "arg" : "ours",
+    text: { works: "works", fails: "does not work", bypassed: "bypassed", holds: "holds" }[o],
+    by: { demo: "demonstrated by the authors", argued: "argued or simulated by the authors", ours: "our evaluation" }[e] };
+};
+/* conditions most attacks share are folded into "usual", so the distinctive ones stand out */
+const USUAL = new Set(Object.keys(COND).filter(c => { const app = D.rows.filter(r => r[c] !== "-"); return app.length && app.filter(r => r[c] === "Y").length / app.length >= 0.65; }));
+const nNeed = c => D.rows.filter(r => r[c] === "Y").length;
+const surname = k => (P[k] ? P[k].short : k).replace(/ et al\.$/, "");
+/* same first author and year → 2019a / 2019b, in citation-key order */
+const SUFFIX = {};
+(() => { const by = {}; Object.keys(P).sort().forEach(k => { const id = P[k].short + "|" + P[k].year; (by[id] = by[id] || []).push(k); });
+  Object.values(by).forEach(ks => { if (ks.length > 1) ks.forEach((k, i) => SUFFIX[k] = "abcdefgh"[i]); }); })();
+const shortRef = k => P[k] ? `${P[k].short} ${P[k].year}${SUFFIX[k] || ""}` : k;
+const yr = k => P[k] ? `${surname(k)} ’${String(P[k].year).slice(2)}${SUFFIX[k] || ""}` : k;
+const cites = h => String(h || "").replace(/<a class="cite" href="#paper-([^"]+)">[^<]*<\/a>/g, (m, k) => esc(shortRef(k)));
+const clsPill = c => `<span class="pill cls">${c}</span>`;
+const LINE = Object.fromEntries(D.faultMap.filter(L => L.type === "code").map(L => [L.id, L]));
+const INJ = [["Clock glitch", /clock/i, "#7A6FB0"], ["Voltage glitch", /voltage/i, "#B07A3C"], ["EMFI", /emfi/i, "#3C8DB0"], ["Laser", /laser/i, "#B0443C"], ["Rowhammer", /rowhammer/i, "#5A8A3C"], ["Simulated", /simulated/i, "#8A8A8A"]];
+const injOf = r => (INJ.find(([, re]) => re.test(strip(r.hw.injection))) || [null])[0];
+const procOf = r => { const p = strip(r.hw.proc); return /M4/.test(p) ? "Cortex-M4" : /M7/.test(p) ? "Cortex-M7" : /intel/i.test(p) ? "Intel x86" : null; };
+
+function mathify(root) {
+  $$(".m", root).forEach(m => {
+    if (m.dataset.done) return; m.dataset.done = "1";
+    const w = document.createTreeWalker(m, NodeFilter.SHOW_TEXT), nodes = [];
+    while (w.nextNode()) nodes.push(w.currentNode);
+    nodes.forEach(n => {
+      if (n.parentElement.closest("b")) return;
+      const raw = esc(n.nodeValue), h = raw.replace(/(?<![A-Za-zͰ-Ͽ&;])([A-Za-z]|[α-ω])(?![A-Za-zͰ-Ͽ;])/g, "<i>$1</i>");
+      if (h === raw) return;
+      const s = document.createElement("span"); s.innerHTML = h; n.replaceWith(s);
+    });
+  });
+}
+
+/* ---------- frames ---------- */
+const TABS = [["map", "Fault map"], ["abc", "Attack matrix"], ["hw", "Hardware experiments"], ["impl", "Open-source implementations"], ["patents", "Patents"], ["contribute", "Contribute"]];
+$$(".frame").forEach(f => f.insertAdjacentHTML("afterbegin", `<div class="fhead"><div class="logo">ABC for Fault Attacks on ML-DSA</div><div class="tabs">${TABS.map(([id, n]) => `<span class="${id === f.dataset.tab ? "on" : ""}">${n}</span>`).join("")}</div></div>`));
+const ptitle = (h, p, compact) => `<div class="ptitle"><h1>${h}</h1>${p && !compact ? `<p>${p}</p>` : ""}</div>`;
+
+/* ---------- hover cards, pins, badges ---------- */
+const hc = $("#hc");
+function placeCard(card, tr, box, abs) {
+  const pw = card.offsetWidth, ph = card.offsetHeight, cx = tr.left + tr.width / 2;
+  let x = cx - 24; const below = tr.bottom + 10 + ph < box.bottom - 6 || tr.top - 10 - ph < box.top;
+  x = Math.max(box.left + 10, Math.min(x, box.right - pw - 10));
+  const y = below ? tr.bottom + 10 : tr.top - 10 - ph;
+  card.classList.toggle("below", below); card.classList.toggle("above", !below);
+  card.style.setProperty("--ax", Math.max(10, Math.min(pw - 22, cx - x - 6)) + "px");
+  card.style.left = (x - (abs ? box.left : 0)) + "px"; card.style.top = (y - (abs ? box.top : 0)) + "px";
+}
+let hoverEl = null;
+document.addEventListener("mouseover", e => {
+  const t = e.target.closest("[data-tip]");
+  if (t === hoverEl) return; hoverEl = t;
+  if (!t) { hc.classList.remove("on"); return; }
+  hc.innerHTML = t.dataset.tip; mathify(hc); hc.classList.add("on");
+  placeCard(hc, t.getBoundingClientRect(), { left: 0, top: 0, right: innerWidth, bottom: innerHeight }, false);
+});
+addEventListener("scroll", () => { hc.classList.remove("on"); hoverEl = null; }, { passive: true });
+const CURSOR = '<svg class="cursor" viewBox="0 0 20 26" aria-hidden="true"><path d="M2 1.5 L2 20.5 L6.6 16.3 L9.8 23.6 L13 22.2 L9.9 15.1 L16.2 15.1 Z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+const INST = [];
+function linked(body, el) {
+  $$(".same", body).forEach(x => x.classList.remove("same"));
+  if (!el) return;
+  const k = el.dataset.key ? `.chip[data-key="${el.dataset.key}"]` : el.dataset.cond ? `.cond[data-cond="${el.dataset.cond}"]` : null;
+  if (k) $$(k, body).forEach(x => x !== el && x.classList.add("same"));
+}
+function decorate(inst) {
+  const body = inst.body;
+  $$(".pincard,.cursor,.ann,.ripple", body).forEach(x => x.remove());
+  $$(".pinned", body).forEach(x => x.classList.remove("pinned"));
+  const br = body.getBoundingClientRect(), box = { left: br.left, top: br.top, right: br.right, bottom: br.bottom };
+  const t = inst.st.pin ? $(`[data-pid="${inst.st.pin}"]`, body) : null;
+  linked(body, inst.hoverChip || t);
+  if (t) {
+    t.classList.add("pinned");
+    const tr = t.getBoundingClientRect();
+    if (t.dataset.tip) { const card = document.createElement("div"); card.className = "hc pincard"; card.innerHTML = t.dataset.tip; body.appendChild(card); mathify(card); placeCard(card, tr, box, true); }
+    body.insertAdjacentHTML("beforeend", CURSOR);
+    const cur = body.lastElementChild; cur.style.left = (tr.left - br.left + tr.width * 0.55) + "px"; cur.style.top = (tr.top - br.top + tr.height * 0.5) + "px";
+  }
+  (inst.steps || []).forEach((s, i) => {
+    const el = $(s.sel, body); if (!el) return;
+    const r = el.getBoundingClientRect();
+    const b = document.createElement("div"); b.className = "ann"; b.innerHTML = `<span class="badge">${i + 1}</span>`;
+    b.style.left = (r.left - br.left + (s.dx ?? -12)) + "px"; b.style.top = (r.top - br.top + (s.dy ?? -12)) + "px"; body.appendChild(b);
+  });
+}
+const story = inst => inst.q ? `<div class="story"><span class="q">${inst.q}</span>${inst.steps.map((s, i) => `<span class="st"><span class="badge">${i + 1}</span>${s.text}</span>`).join("")}</div>` : "";
+function pinClick(inst, el) { inst.st.pin = inst.st.pin === el.dataset.pid ? null : el.dataset.pid; decorate(inst); }
+function finish(inst) { mathify(inst.body); decorate(inst); }
+function hoverLinks(inst) {
+  inst.body.addEventListener("mouseover", e => { const c = e.target.closest(".chip[data-key], .cond[data-cond]"); if (c !== inst.hoverChip) { inst.hoverChip = c; linked(inst.body, c || (inst.st.pin && $(`[data-pid="${inst.st.pin}"]`, inst.body))); } });
+  inst.body.addEventListener("mouseleave", () => { inst.hoverChip = null; decorate(inst); });
+}
+
+/* ===================== fault map ===================== */
+const MECH = { hd: "hinders", tl: "tolerates", dt: "detects", bk: "bypassed" };
+function tagHtml(t, lid) {
+  const tp = `<div class="h"><span class="k">${t.id}</span>${MECH[t.mech]}</div><div class="d">${esc(strip(cites(D.cmDesc[t.id] || "")))}</div>`;
+  return `<span class="tagc ${t.mech}" data-pid="tag-${lid}-${t.id}" data-tip="${esc(tp)}">${t.id}</span>`;
+}
+const codeHtml = h => h.replace(/<b>(while|do|if|or|then|else|return|and)<\/b>/g, '<span class="kw">$1</span>');
+function ballHtml(v, letter) {
+  if (v === undefined) return "";
+  if (v === null) return '<span class="na">–</span>';
+  const deg = v * 90, fill = `conic-gradient(var(--gen) 0deg ${deg}deg, transparent ${deg}deg 360deg)`;
+  return `<span class="ball" style="background:${fill}" data-tip="${esc(`<div class="h">${CMN[letter]}</div><div class="d">stops ${["none", "a quarter", "half", "three quarters", "all"][v]} of the attacks on this line</div>`)}"></span>`;
+}
+function attackTip(r) {
+  const v = VERD(r.hed), w = r.hw, p = P[r.key] || {};
+  const tgt = r.lines.map(id => LINE[id]).filter(Boolean).map(L => `<span class="s">${L.no || L.id}</span>&nbsp; <span>${L.html}</span>`).join("<br>");
+  const setup = r.eval === "E" ? [w.injection, w.cw !== "–" ? "ChipWhisperer " + w.cw : "", w.device !== "–" ? w.device + (w.proc !== "–" ? " (" + w.proc + ")" : "") : ""].filter(Boolean).join(" · ") : EV[r.eval];
+  return esc(`<div class="h"><span class="k">${r.cls}</span>${esc(shortRef(r.key))}<span class="s" style="font-weight:400">${p.venue ? esc(p.venue) : ""}</span></div>` +
+    `<div class="kv"><span>Target</span><span>${tgt || "–"}</span>` +
+    `<span>Fault</span><span>${esc(r.fault || "–")}</span>` +
+    `<span>Setup</span><span>${setup}</span>` +
+    (w.impl !== "–" ? `<span>Code</span><span>${w.impl}</span>` : "") +
+    (v ? `<span>Hedged</span><span><span class="vd ${v.bad ? "bad" : "ok"} ${v.ev}" style="width:10px;height:10px;vertical-align:-1px"></span> ${v.text}</span>` : "") +
+    (r.rec !== "-" ? `<span>Recovery</span><span>${r.rec.split("/").map(x => REC[x] || x).join(" + ")}</span>` : "") +
+    `</div><div class="foot">Open paper ↗</div>`);
+}
+function heatOf(n) { return n >= 6 ? 0.5 : n >= 3 ? 0.3 : n >= 1 ? 0.14 : 0; }
+function mkMap(id, o) {
+  const inst = { body: document.getElementById(id), st: Object.assign({ filter: "all", sel: null, cm: true, gen: false, attackedOnly: false, pin: null }, o.st), q: o.q, steps: o.steps, compact: o.compact };
+  inst.render = () => renderMap(inst); INST.push(inst);
+  inst.body.addEventListener("click", e => {
+    const f = e.target.closest("[data-f]"); if (f) { inst.st.filter = f.dataset.f; inst.render(); return; }
+    const ch = e.target.closest("a.chip"); if (ch) { if (e.altKey) { e.preventDefault(); pinClick(inst, ch); } return; }
+    const p = e.target.closest(".tagc[data-pid]"); if (p) { pinClick(inst, p); return; }
+    const ln = e.target.closest("tr.ln"); if (ln) { inst.st.sel = inst.st.sel === ln.dataset.l ? null : ln.dataset.l; inst.render(); }
+  });
+  inst.body.addEventListener("change", e => { if (e.target.matches(".fm-cm")) { inst.st.cm = e.target.checked; inst.render(); } if (e.target.matches(".fm-gen")) { inst.st.gen = e.target.checked; inst.render(); } if (e.target.matches(".fm-att")) { inst.st.attackedOnly = e.target.checked; inst.render(); } });
+  hoverLinks(inst);
+  return inst;
+}
+function renderMap(inst) {
+  const st = inst.st, vis = r => st.filter === "all" || (st.filter === "hed" && (r.alg !== "S" || /^works/.test(r.hed))) || (st.filter === "hw" && r.eval === "E");
+  let h = story(inst) + ptitle("Fault map", "ML-DSA as specified in FIPS&nbsp;204, with every published fault attack placed at the line it targets. Hover over an attack for a summary, click a line for its fault classes and countermeasures.", inst.compact);
+  h += `<div class="toolbar"><div class="tseg">${[["all", "All attacks"], ["hed", "Hedged signing"], ["hw", "Demonstrated on hardware"]].map(([v, n]) => `<button type="button" data-f="${v}" aria-pressed="${v === st.filter}">${n}</button>`).join("")}</div>` +
+    `<label class="switch"><input type="checkbox" class="fm-cm" ${st.cm ? "checked" : ""}> Targeted countermeasures</label>` +
+    `<label class="switch"><input type="checkbox" class="fm-gen" ${st.gen ? "checked" : ""}> Generic countermeasures</label>` +
+    `<label class="switch"><input type="checkbox" class="fm-att" ${st.attackedOnly ? "checked" : ""}> Attacked lines only</label></div>`;
+  h += `<div class="listing"><table class="fm${st.cm ? "" : " nocm"}${st.gen ? "" : " nogen"}${inst.compact ? " compact" : ""}"><thead><tr><th></th><th>FIPS 204</th><th>Attacks</th><th class="cmc">Targeted countermeasures</th>${CMS.map(c => `<th class="gen" data-tip="${esc(`<div class="h">${CMN[c[0]]}</div><div class="d">Share of the attacks on the line that it stops</div>`)}">${c[0]}</th>`).join("")}</tr></thead><tbody>`;
+  D.faultMap.forEach(L => {
+    if (L.type === "head") { h += `<tr class="proc"><td></td><td colspan="${3 + CMS.length}">${L.html}</td></tr>`; return; }
+    const rs = D.rows.filter(r => r.lines.includes(L.id)), n = rs.filter(vis).length, a = heatOf(n);
+    if (st.attackedOnly && !n) return;
+    const chips = rs.filter(r => !inst.compact || vis(r)).map(r => `<a class="chip ${vis(r) ? "" : "dim"}" href="${esc((P[r.key] || {}).url || "#")}" target="_blank" rel="noopener noreferrer" data-pid="fm-${r.id}-${L.id}" data-key="${r.key}" data-tip="${attackTip(r)}"><i>${r.cls}</i>${esc(yr(r.key))}</a>`).join("");
+    const bg = a ? ` style="background-color:rgba(var(--heat),${(a * 0.55).toFixed(3)})"` : "";
+    h += `<tr class="ln ${st.sel === L.id ? "sel" : ""}" data-l="${L.id}"><td class="num"${bg}>${a ? `<span class="heat" style="background:rgba(var(--heat),${Math.min(1, a * 1.7).toFixed(2)})"></span>` : ""}${L.no || ""}</td>` +
+      `<td class="code"${bg} data-pid="ln-${L.id}"><span class="ind${L.indent}">${codeHtml(L.html)}</span>${L.comment ? `<span class="cmt">▷ ${L.comment}</span>` : ""}</td><td class="att">${chips}</td><td class="cmc">${L.tags.map(t => tagHtml(t, L.id)).join("")}</td>` +
+      CMS.map(([c]) => `<td class="gen">${rs.length ? ballHtml(L.gen[c], c) : ""}</td>`).join("") + "</tr>";
+    if (st.sel === L.id) {
+      const shown = rs.filter(r => !inst.compact || vis(r));
+      const dash = x => x === "–" ? '<span class="na">–</span>' : x;
+      const who = shown.length ? `<div class="who"><div class="wr wh"><span>Class</span><span>Attack</span><span>Injection</span><span>Device</span><span>Implementation</span><span>Hedged</span></div>` +
+        shown.map(r => { const v = VERD(r.hed), w = r.hw;
+          return `<div class="wr"><span><b class="pill cls">${r.cls}</b> ${esc(FC[r.cls])}</span><span><span class="ref">${esc(shortRef(r.key))}</span> <small>${EV[r.eval]}</small></span>` +
+            `<span>${dash(w.injection)}</span><span>${dash(w.device)}${w.proc !== "–" ? ` <small>${w.proc}</small>` : ""}</span><span class="mut">${dash(w.impl)}</span>` +
+            `<span>${v ? `<i class="vd ${v.bad ? "bad" : "ok"} ${v.ev}"></i> ${v.bad ? "works" : "fails"}` : '<span class="na">–</span>'}</span></div>`; }).join("") + "</div>" : '<div class="it">No published attack targets this line.</div>';
+      const cm = L.tags.length ? L.tags.map(t => `<div class="it">${tagHtml(t, L.id + "d")} ${cites(D.cmDesc[t.id] || "")}</div>`).join("") : '<div class="it">None proposed.</div>';
+      h += `<tr class="detail"><td class="dt" colspan="${4 + CMS.length}"><div class="det-cols"><div><div class="kick">Who attacked line ${L.no || L.id}, and how</div>${who}</div><div><div class="kick">Targeted countermeasures</div>${cm}</div></div></td></tr>`;
+    }
+  });
+  const sw = (a, t) => `<span class="sw" style="background:rgba(var(--heat),${(a * 0.55 + 0.05).toFixed(2)})">${t}</span>`;
+  h += `</tbody></table><div class="fm-legend"><span class="grp">Attacks per line ${sw(0.14, "1–2")}${sw(0.3, "3–5")}${sw(0.5, "6–9")}</span>` +
+    `<span class="grp"><span class="chip" style="cursor:default;margin:0"><i>F5</i>Author ’25</span>fault class, first author, year</span>` +
+    `<span class="grp" style="margin-left:auto">Countermeasure <span class="tagc hd">C</span>hinders <span class="tagc tl">C</span>tolerates <span class="tagc dt">C</span>detects <span class="tagc bk">C</span>bypassed</span></div></div>`;
+  inst.body.innerHTML = h; finish(inst);
+}
+
+/* ===================== attack list (matrix view) ===================== */
+function condTip(r, c) {
+  const m = COND[c], n = nNeed(c);
+  return esc(`<div class="h">${m.name} <span class="k">${c}</span></div><div class="s">${m.group}${USUAL.has(c) ? " · needed by most attacks" : ""}</div><div class="d">${esc(m.def)}</div>` +
+    `<div class="d s">Needed by ${n} of ${D.rows.length} attacks</div>` + (SEC(m.sec) ? `<span class="sec">Discussed in ${esc(SEC(m.sec))} · click to show only attacks that need it</span>` : ""));
+}
+function cmTip(r, c) {
+  const d = VERD(r[c]), note = r.cellNotes && r.cellNotes[c], cm = CMS.find(x => x[0] === c);
+  const val = d ? `<span class="vd ${d.bad ? "bad" : "ok"} ${d.ev}"></span>${d.text}<span class="s">· ${d.by}</span>` : '<span class="na">–</span> does not apply';
+  return esc(`<div class="h"><span class="k">${r.cls}</span>${esc(shortRef(r.key))}</div><div class="v"><b>${CMN[c]} (${c})</b></div><div class="v">${val}</div><div class="d s">${esc(cm[3])}</div>` +
+    (note ? `<div class="d"><b>${note}</b> ${esc(strip(cites(D.notes[note] || "")))}</div>` : "") + (SEC(cm[2]) ? `<span class="sec">Discussed in ${esc(SEC(cm[2]))}</span>` : ""));
+}
+const recTip = r => esc(`<div class="h">Key recovery</div><div class="d">${r.rec.split("/").map(x => `<b>${x}</b> ${REC[x] || x}: ${esc(DEF[x] || "")}`).join("<br>")}</div>`);
+const lineTip = r => esc(r.lines.map(id => LINE[id] ? `<div class="v"><span class="s">${LINE[id].no || id}</span><span class="m">${LINE[id].html}</span></div>` : "").join("") || "No line assigned");
+function evCell(r) {
+  if (r.eval !== "E") return `${EV[r.eval]}<div class="sub">${r.eval === "S" ? "model or simulator" : "no experiment"}</div>`;
+  return `Hardware<div class="sub">${esc(strip(r.hw.injection))}${r.hw.proc !== "–" ? " · " + esc(strip(r.hw.proc)) : ""}</div>`;
+}
+function mkList(id, o) {
+  const base = { cls: "", alg: "", ev: "", hed: "", q: "", need: {}, out: {}, bypass: {}, sort: "cls", usual: false, menu: false, sel: null, pin: null };
+  const inst = { body: document.getElementById(id), st: Object.assign({}, base, o.st), q: o.q, steps: o.steps, legend: o.legend !== false, compact: o.compact };
+  ["need", "out", "bypass"].forEach(k => inst.st[k] = Object.assign({}, o.st && o.st[k]));
+  inst.render = () => renderList(inst); INST.push(inst);
+  const st = inst.st;
+  inst.body.addEventListener("click", e => {
+    if (e.target.closest(".drawer .x") || e.target.closest(".scrim")) { st.sel = null; inst.render(); return; }
+    if (e.target.closest(".drawer") || e.target.closest(".menu label")) return;
+    if (e.target.closest(".menu-btn")) { st.menu = !st.menu; inst.render(); return; }
+    const rm = e.target.closest("[data-rm]"); if (rm) { const [k, c] = rm.dataset.rm.split(":"); delete st[k][c]; inst.render(); return; }
+    if (e.target.closest(".clear")) { Object.assign(st, { cls: "", alg: "", ev: "", hed: "", q: "", need: {}, out: {}, bypass: {} }); inst.render(); return; }
+    const th = e.target.closest("th[data-c]"); if (th) { const c = th.dataset.c; st.bypass[c] ? delete st.bypass[c] : st.bypass[c] = 1; inst.render(); return; }
+    const ach = e.target.closest(".ach[data-ach]");
+    if (ach) { if (e.altKey) { pinClick(inst, ach); return; } const c = ach.dataset.ach; if (st.need[c]) { delete st.need[c]; st.out[c] = 1; } else if (st.out[c]) delete st.out[c]; else st.need[c] = 1; inst.render(); return; }
+    const cond = e.target.closest(".cond[data-cond]");
+    if (cond) { if (e.altKey || inst.pinMode) { pinClick(inst, cond); return; } const c = cond.dataset.cond; st.need[c] ? delete st.need[c] : st.need[c] = 1; st.pin = null; inst.render(); return; }
+    const p = e.target.closest("td.cm [data-pid], td.rc [data-pid], td.ln[data-pid]"); if (p) { pinClick(inst, p); return; }
+    const at = e.target.closest("td.att"); if (at) { const id = +at.parentElement.dataset.id; st.sel = st.sel === id ? null : id; inst.render(); return; }
+    if (st.menu && !e.target.closest(".menu")) { st.menu = false; inst.render(); }
+  });
+  inst.body.addEventListener("change", e => {
+    const f = e.target.dataset.f; if (f) { st[f] = e.target.type === "checkbox" ? e.target.checked : e.target.value; inst.render(); return; }
+    const oc = e.target.dataset.out; if (oc) { e.target.checked ? st.out[oc] = 1 : delete st.out[oc]; inst.render(); }
+  });
+  inst.body.addEventListener("input", e => { if (e.target.dataset.f === "q") { st.q = e.target.value; inst.render(); const i = $('input[data-f="q"]', inst.body); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } });
+  hoverLinks(inst);
+  return inst;
+}
+function renderList(inst) {
+  const st = inst.st;
+  let rows = D.rows.filter(r => (!st.cls || r.cls === st.cls) && (!st.alg || r.alg === st.alg) && (!st.ev || r.eval === st.ev) && (!st.hed || /^works/.test(r.hed)) &&
+    (!st.q || (shortRef(r.key) + " " + (P[r.key] || {}).title).toLowerCase().includes(st.q.toLowerCase())) &&
+    Object.keys(st.need).every(c => r[c] === "Y") && !Object.keys(st.out).some(c => r[c] === "Y") && Object.keys(st.bypass).every(c => /^bypassed/.test(r[c])));
+  const nY = r => Object.keys(COND).filter(c => r[c] === "Y").length;
+  if (st.sort === "few") rows = [...rows].sort((a, b) => nY(a) - nY(b) || a.id - b.id);
+  if (st.sort === "new") rows = [...rows].sort((a, b) => b.year - a.year || a.id - b.id);
+  let h = story(inst) + ptitle("Attack matrix", "Every attack with the assumptions it needs and the countermeasures it bypasses. Hover over anything for an explanation, click an assumption or a countermeasure to filter, click an attack for its summary.", inst.compact);
+  const sel = (f, opts) => `<select data-f="${f}" class="${st[f] && f !== "sort" ? "on" : ""}" aria-label="${f}">${opts.map(([k, n]) => `<option value="${k}" ${k === st[f] ? "selected" : ""}>${n}</option>`).join("")}</select>`;
+  const nout = Object.keys(st.out).length;
+  h += `<div class="filters"><input type="search" data-f="q" placeholder="Search paper…" value="${esc(st.q)}" aria-label="Search paper">` +
+    sel("cls", [["", "All fault classes"], ...D.faultClasses.map(f => [f.id, `${f.id} · ${FC[f.id]}`])]) +
+    sel("alg", [["", "All procedures"], ["K", "Key generation"], ["S", "Signing"], ["V", "Verification"]]) +
+    sel("ev", [["", "Any evaluation"], ["E", "Hardware experiment"], ["S", "Simulation"], ["T", "Theoretical"]]) +
+    sel("hed", [["", "Any signing mode"], ["hed", "Works with hedged signing"]]) +
+    sel("sort", [["cls", "Sort: fault class"], ["few", "Sort: fewest conditions"], ["new", "Sort: newest"]]) +
+    `<span class="count">${rows.length === D.rows.length ? "All attacks" : `${rows.length} of ${D.rows.length} attacks`}</span>`;
+  h += "</div>";
+  const passAll = (r, skip) => (!st.cls || r.cls === st.cls) && (!st.alg || r.alg === st.alg) && (!st.ev || r.eval === st.ev) && (!st.hed || /^works/.test(r.hed)) &&
+    (!st.q || (shortRef(r.key) + " " + (P[r.key] || {}).title).toLowerCase().includes(st.q.toLowerCase())) && Object.keys(st.bypass).every(c => /^bypassed/.test(r[c])) &&
+    Object.keys(st.need).every(c => r[c] === "Y") && !Object.keys(st.out).some(c => c !== skip && r[c] === "Y");
+  h += `<div class="apanel"><div class="ap-head"><b>Assumptions</b><span>Click once to keep only attacks that need it, twice to rule it out.</span>` +
+    `<span class="key"><span class="ach need" style="cursor:default"><span>required</span></span><span class="ach out" style="cursor:default"><span>ruled out</span></span></span></div><div class="ap-body">` +
+    CONDS.map(([g, , list]) => `<span class="ap-l">${g}</span>${list.map(([c, n]) => {
+      const state = st.need[c] ? "need" : st.out[c] ? "out" : "", cnt = state === "out" ? D.rows.filter(r => passAll(r, c) && r[c] === "Y").length : rows.filter(r => r[c] === "Y").length;
+      const tip = `<div class="h">${n} <span class="k">${c}</span></div><div class="s">${g}</div><div class="d">${esc(COND[c].def)}</div><div class="d s">${state === "out" ? `Ruled out: hides ${cnt} attacks` : `${cnt} of the shown attacks need it`}</div><span class="sec">Click: ${state === "need" ? "rule it out" : state === "out" ? "clear" : "require it"}</span>`;
+      return `<button type="button" class="ach ${state} ${cnt ? "" : "zero"}" data-ach="${c}" data-pid="ach-${c}" data-tip="${esc(tip)}"><span>${n}</span><small>${c}</small><em>${cnt}</em></button>`;
+    }).join("")}`).join("") + "</div></div>";
+  const chips = Object.keys(st.bypass).map(c => `<span class="fchip">Bypasses ${esc(CMN[c].toLowerCase())}<button type="button" data-rm="bypass:${c}" aria-label="Remove">×</button></span>`).join("");
+  const any = chips || st.cls || st.alg || st.ev || st.hed || st.q || Object.keys(st.need).length || Object.keys(st.out).length;
+  if (!inst.compact) h += `<div class="fchips">${chips || "<span>Click a countermeasure column to keep the attacks that bypass it</span>"}${any ? '<button class="clear" type="button">Clear all</button>' : ""}` +
+    `<label class="switch right"><input type="checkbox" data-f="usual" ${st.usual ? "checked" : ""}> Show usual conditions</label></div>`;
+  h += `<div class="frame-scroll"><table class="al${inst.compact ? " compact" : ""}"><thead><tr class="g"><th colspan="${inst.compact ? 4 : 5}"></th><th class="cmg" colspan="5">Countermeasure</th></tr><tr>` +
+    `<th>Attack</th>${inst.compact ? "" : "<th>Class</th>"}<th>Evaluation</th><th>Key recovery</th>` +
+    `<th data-tip="${esc(`<div class="h">Needs</div><div class="d">Assumptions the attack relies on. The ${USUAL.size} conditions most attacks share (${[...USUAL].map(c => COND[c].name.toLowerCase()).join(", ")}) are folded into “usual” so that what makes an attack special stands out.</div>`)}">Needs</th>` +
+    CMS.map(([c, n, , d]) => `<th class="cm ${st.bypass[c] ? "fon" : ""}" data-c="${c}" data-tip="${esc(`<div class="h">${CMN[c]} <span class="k">${c}</span></div><div class="d">${d}</div><span class="sec">Click to show only attacks that bypass it</span>`)}">${n}</th>`).join("") + "</tr></thead><tbody>";
+  let last = null;
+  rows.forEach(r => {
+    if (st.sort === "cls" && r.cls !== last) { const fc = D.faultClasses.find(f => f.id === r.cls) || {}; h += `<tr class="clsrow"><td colspan="${inst.compact ? 9 : 10}"><b class="fid">${r.cls}</b><span class="cn">${esc(FC[r.cls])}</span>${fc.label || ""}</td></tr>`; last = r.cls; }
+    const allN = [...r.notes, ...(r.cellNotes && r.cellNotes.eval ? [r.cellNotes.eval] : [])];
+    const marks = (r.eprint ? "<sup>†</sup>" : "") + (allN.length ? `<sup>${allN.join(",")}</sup>` : "");
+    const need = Object.keys(COND).filter(c => r[c] === "Y");
+    const dist = need.filter(c => !USUAL.has(c)), usual = need.filter(c => USUAL.has(c));
+    const condChip = (c, u) => `<span class="cond${u ? " usual" : ""}" data-cond="${c}" data-pid="cd-${r.id}-${c}" data-tip="${condTip(r, c)}">${esc(COND[c].name)}<small>${c}</small></span>`;
+    const nd = dist.map(c => condChip(c, false)).join("") + (st.usual ? usual.map(c => condChip(c, true)).join("") :
+      usual.length ? `<span class="usual-more" data-tip="${esc(`<div class="h">Usual conditions</div><div class="d">${usual.map(c => COND[c].name).join(", ")}</div>`)}">+ ${usual.length} usual</span>` : "");
+    h += `<tr class="r ${st.sel === r.id ? "sel" : ""}" data-id="${r.id}"><td class="att" data-pid="att-${r.id}"><div class="rf"><span class="ref">${esc(shortRef(r.key))}</span>${marks}</div><div class="sub">${ALG[r.alg]}</div></td>` +
+      `${inst.compact ? "" : `<td class="cl">${clsPill(r.cls)}</td>`}` +
+      `<td class="ev">${evCell(r)}</td><td class="rc">${r.rec === "-" ? '<span class="na">forgery</span>' : `<span data-pid="rc-${r.id}" data-tip="${recTip(r)}">${r.rec.split("/").map(x => `<small>${x}</small>${REC[x] || x}`).join("<br>")}</span>`}</td>` +
+      `<td class="nd">${nd || '<span class="na">–</span>'}</td>` +
+      CMS.map(([c]) => { const d = VERD(r[c]); return `<td class="cm">${d ? `<span class="vd ${d.bad ? "bad" : "ok"} ${d.ev}" data-pid="cm-${r.id}-${c}" data-tip="${cmTip(r, c)}"></span>` : `<span class="na" data-pid="cm-${r.id}-${c}" data-tip="${cmTip(r, c)}">–</span>`}${r.cellNotes && r.cellNotes[c] ? `<sup>${r.cellNotes[c]}</sup>` : ""}</td>`; }).join("") + "</tr>";
+  });
+  h += "</tbody></table></div>";
+  if (inst.legend) h += `<div class="legend3"><span class="grp"><b>Countermeasure</b><span class="vd bad demo"></span>bypassed <span class="vd ok demo"></span>holds</span>` +
+    `<span class="grp"><b>Evidence</b><span class="vd bad demo"></span>demonstrated <span class="vd bad arg"></span>argued or simulated <span class="vd bad ours"></span>our evaluation</span>` +
+    `<span class="grp"><b>Conditions</b><span class="cond" style="cursor:default">Distinctive<small>T5</small></span><span class="usual-more">+ usual</span> needed by most attacks</span></div>` +
+    `<div class="note"><sup>†</sup> preprint. ${Object.entries(D.notes).map(([k, v]) => `<sup>${k}</sup>&nbsp;${cites(v)}`).join(" ")}</div>`;
+  const r = D.rows.find(x => x.id === st.sel);
+  if (r) h += `<div class="scrim"></div>` + attackDrawer(r);
+  inst.body.innerHTML = h; finish(inst);
+}
+function whereHtml(r) {
+  const lines = r.lines.map(id => LINE[id]).filter(Boolean);
+  return lines.length ? `<div class="grp"><div class="kick">Where in ML-DSA</div><div class="where">${lines.map(L => `<div class="ln"><span class="no">${L.no || L.id}</span><span class="cd">${codeHtml(L.figHtml || L.html)}</span></div>`).join("")}</div></div>` : "";
+}
+function attackDrawer(r) {
+  const p = P[r.key] || {};
+  const need = Object.keys(COND).filter(c => r[c] === "Y");
+  const vchips = ids => ids.map(c => { const v = VERD(r[c]); return v ? `<span class="dchip ${v.bad ? "bad" : "ok"}">${c === "det" ? "Deterministic" : c === "hed" ? "Hedged" : CMN[c]}: ${v.text}</span>` : ""; }).join("");
+  let h = `<div class="drawer"><button class="x" type="button" aria-label="Close">×</button><h3>${esc(shortRef(r.key))}</h3>` +
+    `<div class="pt">${esc(p.title || "")}${p.venue ? ` · <i>${esc(p.venue)}</i>` : ""}</div>` +
+    `<a class="lnk gotop" href="${esc(p.url || "#")}" target="_blank" rel="noopener noreferrer">Go to paper ↗</a>` +
+    `<div class="row">${clsPill(r.cls)}<span class="pill">${esc(FC[r.cls])}</span><span class="pill">${ALG[r.alg]}</span><span class="pill">${EV[r.eval]}</span></div>`;
+  h += whereHtml(r);
+  if (r.fault) h += `<div class="grp"><div class="kick">Fault</div><div class="pt" style="color:var(--ink)">${esc(r.fault)}</div></div>`;
+  h += `<div class="grp"><div class="kick">Needs</div><div class="row">${need.filter(c => !USUAL.has(c)).map(c => `<span class="dchip on">${esc(COND[c].name)}</span>`).join("")}${need.filter(c => USUAL.has(c)).map(c => `<span class="dchip usual">${esc(COND[c].name)}</span>`).join("")}</div></div>`;
+  if (r.rec !== "-") h += `<div class="grp"><div class="kick">Key recovery</div><div class="row">${r.rec.split("/").map(x => `<span class="dchip">${x} · ${REC[x] || x}</span>`).join("")}</div></div>`;
+  const modes = vchips(["det", "hed"]); if (modes) h += `<div class="grp"><div class="kick">Signing mode</div><div class="row">${modes}</div></div>`;
+  const cms = vchips(["S", "M", "V", "D", "H"]); if (cms) h += `<div class="grp"><div class="kick">Countermeasures</div><div class="row">${cms}</div></div>`;
+  if (r.eval === "E") { const w = r.hw; h += `<div class="grp"><div class="kick">Experiment</div><div class="pt" style="color:var(--ink)">${[w.injection, w.cw !== "–" ? "ChipWhisperer " + w.cw : "", w.device !== "–" ? w.device + (w.proc !== "–" ? " (" + w.proc + ")" : "") : ""].filter(Boolean).join(" · ")}${w.impl !== "–" ? `<br><span style="color:var(--muted)">${w.impl}</span>` : ""}</div></div>`; }
+  return h + "</div>";
+}
+
+/* ===================== hardware experiments (appendix table) ===================== */
+const sup = (r, f) => (r.hw.notes[f] || []).map(n => `<sup>${n}</sup>`).join("");
+function mkHw(id, o) {
+  const base = { cls: "", alg: "", ev: "E", q: "", inj: "", proc: "", sel: null, pin: null };
+  const inst = { body: document.getElementById(id), st: Object.assign({}, base, o.st), q: o.q, steps: o.steps, compact: o.compact };
+  inst.render = () => renderHw(inst); INST.push(inst);
+  const st = inst.st;
+  inst.body.addEventListener("click", e => {
+    if (e.target.closest(".drawer .x") || e.target.closest(".scrim")) { st.sel = null; inst.render(); return; }
+    if (e.target.closest(".drawer")) return;
+    const rm = e.target.closest("[data-rm]"); if (rm) { st[rm.dataset.rm] = ""; inst.render(); return; }
+    if (e.target.closest(".clear")) { Object.assign(st, { cls: "", alg: "", ev: "", q: "", inj: "", proc: "" }); inst.render(); return; }
+    const v = e.target.closest(".val[data-k]"); if (v) { if (e.altKey) { pinClick(inst, v); return; } st[v.dataset.k] = st[v.dataset.k] === v.dataset.v ? "" : v.dataset.v; inst.render(); return; }
+    const at = e.target.closest("td.att"); if (at) { const id = +at.parentElement.dataset.id; st.sel = st.sel === id ? null : id; inst.render(); }
+  });
+  inst.body.addEventListener("change", e => { const f = e.target.dataset.f; if (f) { st[f] = e.target.value; inst.render(); } });
+  inst.body.addEventListener("input", e => { if (e.target.dataset.f === "q") { st.q = e.target.value; inst.render(); const i = $('input[data-f="q"]', inst.body); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } });
+  return inst;
+}
+function hwTip(r) {
+  const w = r.hw, nn = Object.values(w.notes).flat();
+  return esc(`<div class="h"><span class="k">${r.cls}</span>${esc(shortRef(r.key))}</div><div class="d"><span class="s">Injection</span> ${w.injection}${w.cw !== "–" ? ` · ChipWhisperer ${w.cw}` : ""}</div><div class="d"><span class="s">Device</span> ${w.device}${w.proc !== "–" ? ` (${w.proc})` : ""}</div>` +
+    nn.map(n => `<div class="d"><b>${n}</b> ${esc(strip(D.appNotes[n] || ""))}</div>`).join("") + `<span class="sec">Click to show only experiments with this technique</span>`);
+}
+function renderHw(inst) {
+  const st = inst.st;
+  const rows = D.rows.filter(r => (!st.cls || r.cls === st.cls) && (!st.alg || r.alg === st.alg) && (!st.ev || r.eval === st.ev) && (!st.inj || injOf(r) === st.inj) && (!st.proc || procOf(r) === st.proc) &&
+    (!st.q || (shortRef(r.key) + " " + (P[r.key] || {}).title).toLowerCase().includes(st.q.toLowerCase())));
+  let h = story(inst) + ptitle("Hardware experiments", "How each attack was evaluated: fault injection technique, ChipWhisperer model, processor, device and the attacked implementation. Click any technique or processor to filter by it.", inst.compact);
+  const sel = (f, opts) => `<select data-f="${f}" class="${st[f] ? "on" : ""}" aria-label="${f}">${opts.map(([k, n]) => `<option value="${k}" ${k === st[f] ? "selected" : ""}>${n}</option>`).join("")}</select>`;
+  h += `<div class="filters"><input type="search" data-f="q" placeholder="Search paper…" value="${esc(st.q)}" aria-label="Search paper">` +
+    sel("cls", [["", "All fault classes"], ...D.faultClasses.map(f => [f.id, `${f.id} · ${FC[f.id]}`])]) + sel("alg", [["", "All procedures"], ["K", "Key generation"], ["S", "Signing"], ["V", "Verification"]]) +
+    sel("ev", [["", "Any evaluation"], ["E", "Hardware experiment"], ["S", "Simulation"], ["T", "Theoretical"]]) +
+    `<span class="count">${rows.length === D.rows.length ? "All attacks" : `${rows.length} of ${D.rows.length} attacks`}</span></div>`;
+  const chips = [st.inj && `<span class="fchip">Injection: ${esc(st.inj)}<button type="button" data-rm="inj" aria-label="Remove">×</button></span>`, st.proc && `<span class="fchip">Processor: ${esc(st.proc)}<button type="button" data-rm="proc" aria-label="Remove">×</button></span>`].filter(Boolean).join("");
+  h += `<div class="fchips">${chips || "<span>Click an injection technique or processor to filter</span>"}${chips || st.cls || st.alg || st.q ? '<button class="clear" type="button">Clear all</button>' : ""}</div>`;
+  h += '<div class="frame-scroll"><table class="hw"><thead><tr><th>Attack</th><th>Injection</th><th>ChipWhisperer</th><th>Processor</th><th>Device</th><th>Implementation</th></tr></thead><tbody>';
+  let last = null;
+  rows.forEach(r => {
+    if (r.cls !== last) { const fc = D.faultClasses.find(f => f.id === r.cls) || {}; h += `<tr class="clsrow"><td colspan="6"><b class="fid">${r.cls}</b><span class="cn">${esc(FC[r.cls])}</span>${fc.label || ""}</td></tr>`; last = r.cls; }
+    const w = r.hw, inj = injOf(r), pr = procOf(r), col = (INJ.find(x => x[0] === inj) || [])[2];
+    const t = v => v === "–" ? '<span class="na">–</span>' : v;
+    h += `<tr class="r ${st.sel === r.id ? "sel" : ""}" data-id="${r.id}"><td class="att"><span class="ref">${esc(shortRef(r.key))}</span>${r.eprint ? "<sup>†</sup>" : ""}<div class="sub">${ALG[r.alg]} · ${EV[r.eval]}</div></td>` +
+      `<td>${inj ? `<span class="val ${st.inj === inj ? "on" : ""}" data-k="inj" data-v="${esc(inj)}" data-pid="hv-${r.id}" data-tip="${hwTip(r)}"><span class="inj" style="background:${col}"></span>${esc(strip(w.injection))}</span>` : t(w.injection)}${sup(r, "injection")}</td>` +
+      `<td class="mut">${t(w.cw)}${sup(r, "cw")}</td>` +
+      `<td>${pr ? `<span class="val ${st.proc === pr ? "on" : ""}" data-k="proc" data-v="${esc(pr)}">${esc(strip(w.proc))}</span>` : t(w.proc)}${sup(r, "proc")}</td>` +
+      `<td>${t(w.device)}${sup(r, "device")}</td><td class="mut">${t(w.impl)}${sup(r, "impl")}</td></tr>`;
+  });
+  h += "</tbody></table></div>";
+  h += `<div class="note"><sup>†</sup> preprint · – not used, or not applicable (simulated or theoretical) · n.s. not specified (target board in parentheses). ${Object.entries(D.appNotes).map(([k, v]) => `<sup>${k}</sup>&nbsp;${cites(v)}`).join(" ")}</div>`;
+  const r = D.rows.find(x => x.id === st.sel);
+  if (r) {
+    const w = r.hw, p = P[r.key] || {}, dd = (v, f) => (v === "–" ? '<span class="na">–</span>' : v) + sup(r, f), nn = Object.values(w.notes).flat();
+    h += `<div class="scrim"></div><div class="drawer"><button class="x" type="button" aria-label="Close">×</button><h3>${esc(shortRef(r.key))}</h3>` +
+      `<div class="pt">${esc(p.title || "")}${p.venue ? ` · <i>${esc(p.venue)}</i>` : ""}</div><div class="row">${clsPill(r.cls)}<span class="pill">${esc(FC[r.cls])}</span><span class="pill">${ALG[r.alg]}</span><span class="pill">${EV[r.eval]}</span></div>` +
+      `<div class="grp"><div class="kick">Experimental setup</div><dl><dt>Injection</dt><dd>${dd(w.injection, "injection")}</dd><dt>ChipWhisperer</dt><dd>${dd(w.cw, "cw")}</dd><dt>Processor</dt><dd>${dd(w.proc, "proc")}</dd><dt>Device</dt><dd>${dd(w.device, "device")}</dd><dt>Implementation</dt><dd>${dd(w.impl, "impl")}</dd></dl></div>` +
+      (nn.length ? `<div class="grp"><div class="kick">Notes</div>${nn.map(n => `<div class="pt"><b>${n}</b> ${cites(D.appNotes[n] || "")}</div>`).join("")}</div>` : "") + whereHtml(r) +
+      (VERD(r.hed) ? `<div class="grp"><div class="kick">Signing mode</div><div class="row"><span class="dchip ${VERD(r.hed).bad ? "bad" : "ok"}">Hedged: ${VERD(r.hed).text}</span></div></div>` : "") +
+      `<div class="grp"><a class="lnk" href="${esc((P[r.key] || {}).url || "#")}" target="_blank" rel="noopener noreferrer">Open paper ↗</a></div></div>`;
+  }
+  inst.body.innerHTML = h; finish(inst);
+}
+
+/* ===================== heatmap: fault class x assumption ===================== */
+function mkHeat(id, o) {
+  const inst = { body: document.getElementById(id), st: Object.assign({ pin: null }, o.st), q: o.q, steps: o.steps, compact: o.compact, click: true };
+  inst.render = () => renderHeat(inst); INST.push(inst);
+  inst.body.addEventListener("click", e => { const c = e.target.closest("td.c[data-pid]"); if (c) pinClick(inst, c); });
+  return inst;
+}
+function renderHeat(inst) {
+  const cols = CONDS.flatMap(([g, , list]) => list.map(([c, n], i) => ({ c, n, g, first: i === 0 })));
+  let h = ptitle("Heatmap", "How often each fault class relies on each assumption. Darker cells mean that more attacks of the class need the assumption. Click a cell to see the attacks.", inst.compact);
+  h += '<div class="frame-scroll"><table class="hm"><thead><tr class="g"><th class="rowh"></th>' + CONDS.map(([g, , list]) => `<th colspan="${list.length}" class="gs">${g}</th>`).join("") + "</tr><tr><th class=\"rowh\"></th>" +
+    cols.map(x => `<th class="${x.first ? "gs" : ""}">${esc(x.n).replace("Enumerable", "Enumer&shy;able").replace("positions", "posi&shy;tions").replace("remainder", "remain&shy;der")}<small>${x.c}</small></th>`).join("") + "</tr></thead><tbody>";
+  D.faultClasses.forEach(f => {
+    const rs = D.rows.filter(r => r.cls === f.id);
+    const lab = r => esc(shortRef(r.key)) + (rs.filter(x => x.key === r.key).length > 1 ? ` <span class="s">(line ${r.lines.map(l => LINE[l] ? (LINE[l].no || l) : l).join(", ")})</span>` : "");
+    h += `<tr><td class="rowh"><b>${f.id}</b><span>${esc(FC[f.id])}</span><small>${rs.length} attack${rs.length === 1 ? "" : "s"}</small></td>`;
+    cols.forEach(x => {
+      const app = rs.filter(r => r[x.c] !== "-"), need = rs.filter(r => r[x.c] === "Y"), share = app.length ? need.length / app.length : 0;
+      const bg = need.length ? `background:rgba(var(--heat),${(0.1 + share * 0.62).toFixed(2)})` : (app.length ? "background:var(--soft)" : "");
+      const no = app.filter(r => r[x.c] !== "Y");
+      const tip = `<div class="h"><span class="k">${f.id}</span>${esc(FC[f.id])}</div><div class="v"><b>${esc(x.n)} (${x.c})</b></div>` +
+        `<div class="d">${need.length} of ${app.length} attack${app.length === 1 ? "" : "s"} need it</div>` +
+        (need.length ? `<div class="d">${need.map(lab).join("<br>")}</div>` : "") +
+        (no.length ? `<div class="d s">Not needed: ${no.map(lab).join(", ")}</div>` : "") + `<span class="sec">${esc(COND[x.c].def)}</span>`;
+      h += `<td class="c ${x.first ? "gs" : ""} ${need.length ? "" : "z"}" style="${bg}" data-pid="hm-${f.id}-${x.c}" data-tip="${esc(tip)}">${need.length || ""}</td>`;
+    });
+    h += "</tr>";
+  });
+  h += `</tbody></table></div><div class="hm-legend"><span class="grp">Share of the class's attacks that need the assumption</span><span class="ramp">${[0.1, 0.3, 0.5, 0.7, 0.9].map(a => `<span style="background:rgba(var(--heat),${(0.1 + a * 0.62).toFixed(2)})"></span>`).join("")}</span><span>none → all · number = attacks that need it · grey = applies, never needed · empty = does not apply</span></div>`;
+  inst.body.innerHTML = h; finish(inst);
+}
+
+/* ===================== other tabs ===================== */
+function renderImpl(id) {
+  let h = ptitle("Open-source implementations", "Open-source ML-DSA implementations and the research papers whose attacks targeted them.") +
+    '<table class="tbl"><thead><tr><th>Implementation</th><th>Language</th><th>Targeted by attacks in research papers</th></tr></thead><tbody>';
+  X.implementations.forEach(im => {
+    const re = new RegExp(im.match, "i");
+    const hits = [...new Set(D.rows.filter(r => re.test(strip(r.hw.impl))).map(r => r.key))];
+    h += `<tr><td class="n"><span class="ref">${esc(im.name)}</span><br><span class="fa">${esc(im.platform)}</span></td><td class="n mut">${esc(im.lang)}</td><td>${hits.length ? hits.map(k => `<span class="pchip">${esc(shortRef(k))}</span>`).join("") : '<span class="fa">–</span>'}</td></tr>`;
+  });
+  document.getElementById(id).innerHTML = h + "</tbody></table>";
+}
+function renderPt(id) {
+  const office = n => /^\d{8}B\d$/.test(n) ? "US" : /^20\d{8}A\d$/.test(n) ? "WO" : /^\d{7}A\d$/.test(n) ? "EP" : "";
+  let h = ptitle("Patents and patent applications", "Fault countermeasures for ML-DSA and Dilithium that are protected by patents or patent applications.") +
+    '<table class="tbl"><thead><tr><th>Patent</th><th>Title</th><th>Assignee</th><th>Status</th><th>Year</th></tr></thead><tbody>';
+  [...D.patents].sort((a, b) => a.assignee.localeCompare(b.assignee) || a.number.localeCompare(b.number)).forEach(p => {
+    h += `<tr><td class="n"><span class="ref">${office(p.number)} ${esc(p.number)} ↗</span></td><td>${esc(p.title)}</td><td class="n">${esc(p.assignee)}</td><td class="n mut">${/B\d$/.test(p.number) ? "Granted" : "Application"}</td><td class="n mut">${esc(p.year)}</td></tr>`;
+  });
+  document.getElementById(id).innerHTML = h + "</tbody></table>";
+}
+function renderCon(id) {
+  document.getElementById(id).innerHTML = ptitle("Contribute", "") + `<div class="cards">
+    <div class="card"><h3>Notify us about a paper</h3><p>Know a fault attack or countermeasure for ML-DSA that is missing here? Let us know and we will classify it.</p><button class="btn" type="button" disabled>Notify us</button></div>
+    <div class="card"><h3>Add data to the attack matrix</h3><p>Propose the classification of an attack yourself. We only accept entries that are backed by a public paper or preprint.</p><button class="btn" type="button" disabled>Propose an entry</button></div>
+    <div class="card"><h3>Report a correction</h3><p>Spotted a wrong cell or reference? Tell us what should change and why.</p><button class="btn" type="button" disabled>Report an issue</button></div></div>
+    <p class="note">Submissions open after the review period.</p>`;
+}
+
+/* ===================== views ===================== */
+mkMap("v-map", { st: { filter: "all" } });
+mkList("v-abc", { st: {} });
+mkHw("v-hw", { st: { ev: "E" } });
+INST.forEach(x => x.render());
+renderImpl("v-impl"); renderPt("v-pt"); renderCon("v-con");
+
+/* ---------- tabs (deep link with #map, #matrix, ...) ---------- */
+const VIEWS = ["map", "matrix", "hardware", "implementations", "patents", "contribute"];
+function show(v) {
+  if (!VIEWS.includes(v)) v = "map";
+  $$(".tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.v === v)));
+  $$("main > section").forEach(s => s.hidden = s.dataset.v !== v);
+  hc.classList.remove("on");
+  requestAnimationFrame(() => INST.forEach(decorate));
+}
+$$(".tabs button").forEach(b => b.addEventListener("click", () => { history.replaceState(null, "", "#" + b.dataset.v); show(b.dataset.v); window.scrollTo({ top: 0 }); }));
+show((location.hash || "#map").slice(1));
+document.addEventListener("keydown", e => { if (e.key === "Escape") INST.forEach(x => { if (x.st.sel) { x.st.sel = null; x.render(); } }); });
+addEventListener("resize", () => requestAnimationFrame(() => INST.forEach(decorate)));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => INST.forEach(decorate));
+})();
+</script>
